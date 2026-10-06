@@ -181,6 +181,7 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 
 	var allContours []Contour
 	var allSegments []PathSegment
+	var glyphGroups []GlyphContourGroup
 	glyphCount := 0
 
 	// We lay out top-down in line order, with baseline Y starting at 0 for the first line
@@ -199,6 +200,8 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 			}
 			glyphCount++
 
+			var currentGlyphContours []Contour
+
 			// Translate and scale contours
 			for _, contour := range glyph.Contours {
 				var transformedPts []Point
@@ -208,9 +211,17 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 						Y: cursorY + pt.Y*scale,
 					})
 				}
-				allContours = append(allContours, Contour{
+				c := Contour{
 					Points: transformedPts,
 					Closed: contour.Closed,
+				}
+				currentGlyphContours = append(currentGlyphContours, c)
+				allContours = append(allContours, c)
+			}
+
+			if len(currentGlyphContours) > 0 {
+				glyphGroups = append(glyphGroups, GlyphContourGroup{
+					Contours: currentGlyphContours,
 				})
 			}
 
@@ -236,15 +247,35 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		cursorY -= lineSpacing
 	}
 
+	// Apply Path Welding if requested and we have glyph groups
+	var classifiedPaths []ClassifiedContour
+	isWelded := false
+	if params.Weld && len(glyphGroups) > 0 {
+		weldedContours, classified := WeldGlyphs(glyphGroups, 1e-4)
+		if len(weldedContours) > 0 {
+			allContours = weldedContours
+			classifiedPaths = classified
+			allSegments = nil // in welded mode, use the welded boundary contours
+			isWelded = true
+		}
+	}
+
+	if !isWelded && len(allContours) > 0 {
+		classifiedPaths = ClassifyAndOrientContours(allContours, 1e-4)
+	}
+
 	// Compute initial bounding box
 	if len(allContours) == 0 {
 		return &RenderResult{
-			Contours:   nil,
-			Bounds:     BoundingBox{MinX: 0, MinY: 0, MaxX: 10, MaxY: 10},
-			SVG:        "",
-			DXF:        "",
-			GlyphCount: 0,
-			PathCount:  0,
+			Contours:        nil,
+			ClassifiedPaths: nil,
+			Bounds:          BoundingBox{MinX: 0, MinY: 0, MaxX: 10, MaxY: 10},
+			SVG:             "",
+			DXF:             "",
+			GlyphCount:      0,
+			PathCount:       0,
+			Welded:          false,
+			DXFFormat:       string(params.DXFFormat),
 		}, nil
 	}
 
@@ -292,6 +323,12 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 			allContours[i].Points[j].Y += offsetY
 		}
 	}
+	for i := range classifiedPaths {
+		for j := range classifiedPaths[i].Points {
+			classifiedPaths[i].Points[j].X += offsetX
+			classifiedPaths[i].Points[j].Y += offsetY
+		}
+	}
 	for i := range allSegments {
 		for j := range allSegments[i].Args {
 			allSegments[i].Args[j].X += offsetX
@@ -308,15 +345,24 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 	}
 
 	// Generate DXF and SVG strings
-	dxfStr := GenerateDXF(allContours, params.LayerName, params.Units)
+	dxfFormat := params.DXFFormat
+	if dxfFormat == "" {
+		dxfFormat = DXFFormatSpline
+	}
+
+	dxfStr := GenerateDXF(allContours, allSegments, dxfFormat, params.LayerName, params.Units)
 	svgStr := GenerateSVG(allContours, allSegments, bounds, params.Units)
 
 	return &RenderResult{
-		Contours:   allContours,
-		Bounds:     bounds,
-		SVG:        svgStr,
-		DXF:        dxfStr,
-		GlyphCount: glyphCount,
-		PathCount:  len(allContours),
+		Contours:        allContours,
+		ClassifiedPaths: classifiedPaths,
+		Bounds:          bounds,
+		SVG:             svgStr,
+		DXF:             dxfStr,
+		GlyphCount:      glyphCount,
+		PathCount:       len(allContours),
+		Welded:          isWelded,
+		DXFFormat:       string(dxfFormat),
 	}, nil
 }
+

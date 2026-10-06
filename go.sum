@@ -1,3 +1,5 @@
+github.com/akavel/polyclip-go v0.0.0-20160111220610-2cfdb71461bd h1:/DQAi5feF/aviHBeEK8mS1D/bm6gNFlUFtDkX0L7jOU=
+github.com/akavel/polyclip-go v0.0.0-20160111220610-2cfdb71461bd/go.mod h1:GwtPRvP/jvUpifg23D1jSVP93pV0cSV9fWOn9sG+HEo=
 golang.org/x/image v0.46.0 h1:b1+oYj0Jbp6K5MDT4i4/eZpYlk3V8SJhhDKh6LBHAyQ=
 golang.org/x/image v0.46.0/go.mod h1:3B3W05VGVQyuXucLINLjXKrqISASfi4Xj+iCVkLMwew=
 golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=

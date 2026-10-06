@@ -41,3 +41,19 @@ func SampleCubeBezier(p0, p1, p2, p3 Point, n int) []Point {
 	}
 	return pts
 }
+
+// QuadToCubic elevates a quadratic Bézier curve (p0, p1, p2) to an exact cubic Bézier curve (c0, c1, c2, c3).
+func QuadToCubic(p0, p1, p2 Point) (Point, Point, Point, Point) {
+	c0 := p0
+	c1 := Point{
+		X: p0.X + (2.0/3.0)*(p1.X-p0.X),
+		Y: p0.Y + (2.0/3.0)*(p1.Y-p0.Y),
+	}
+	c2 := Point{
+		X: p2.X + (2.0/3.0)*(p1.X-p2.X),
+		Y: p2.Y + (2.0/3.0)*(p1.Y-p2.Y),
+	}
+	c3 := p2
+	return c0, c1, c2, c3
+}
+

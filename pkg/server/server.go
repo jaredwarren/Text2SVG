@@ -25,15 +25,17 @@ func NewServer(fm *fonts.Manager, fs http.FileSystem) *Server {
 
 // ConvertRequest defines the incoming payload for preview and export.
 type ConvertRequest struct {
-	Text         string          `json:"text"`
-	FontID       string          `json:"font_id"`
-	Size         float64         `json:"size"`
-	Units        converter.Units `json:"units"`
-	Kerning      float64         `json:"kerning"`
-	LineHeight   float64         `json:"line_height"`
-	Datum        converter.Datum `json:"datum"`
-	CurveSamples int             `json:"curve_samples"`
-	LayerName    string          `json:"layer_name"`
+	Text         string              `json:"text"`
+	FontID       string              `json:"font_id"`
+	Size         float64             `json:"size"`
+	Units        converter.Units     `json:"units"`
+	Kerning      float64             `json:"kerning"`
+	LineHeight   float64             `json:"line_height"`
+	Datum        converter.Datum     `json:"datum"`
+	CurveSamples int                 `json:"curve_samples"`
+	LayerName    string              `json:"layer_name"`
+	Weld         bool                `json:"weld"`
+	DXFFormat    converter.DXFFormat `json:"dxf_format"`
 }
 
 // ConvertResponse is the response returned to the Web UI.
@@ -45,6 +47,8 @@ type ConvertResponse struct {
 	Units      string                `json:"units"`
 	GlyphCount int                   `json:"glyph_count"`
 	PathCount  int                   `json:"path_count"`
+	Welded     bool                  `json:"welded"`
+	DXFFormat  string                `json:"dxf_format"`
 	CLICommand string                `json:"cli_command"`
 }
 
@@ -131,6 +135,9 @@ func (s *Server) parseRequest(r *http.Request) (*ConvertRequest, *converter.Load
 	if req.LayerName == "" {
 		req.LayerName = "CUT"
 	}
+	if req.DXFFormat == "" {
+		req.DXFFormat = converter.DXFFormatSpline
+	}
 
 	loadedFont, err := s.fontManager.GetFont(req.FontID)
 	if err != nil {
@@ -156,6 +163,8 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		Datum:        req.Datum,
 		CurveSamples: req.CurveSamples,
 		LayerName:    req.LayerName,
+		Weld:         req.Weld,
+		DXFFormat:    req.DXFFormat,
 	})
 	if err != nil {
 		http.Error(w, "Failed to render text: "+err.Error(), http.StatusInternalServerError)
@@ -165,8 +174,16 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	// Generate CLI command equivalent
 	escapedText := strings.ReplaceAll(req.Text, `"`, `\"`)
 	escapedText = strings.ReplaceAll(escapedText, "\n", `\n`)
-	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s --format dxf --out export.dxf",
-		escapedText, font.FontName, req.Size, req.Kerning, req.Datum)
+	weldFlag := ""
+	if req.Weld {
+		weldFlag = " --weld"
+	}
+	dxfFormatFlag := ""
+	if req.DXFFormat == converter.DXFFormatPolyline {
+		dxfFormatFlag = " --dxf-format polyline"
+	}
+	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s --format dxf --out export.dxf",
+		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag)
 
 	resp := ConvertResponse{
 		SVG:        result.SVG,
@@ -176,6 +193,8 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		Units:      string(req.Units),
 		GlyphCount: result.GlyphCount,
 		PathCount:  result.PathCount,
+		Welded:     result.Welded,
+		DXFFormat:  result.DXFFormat,
 		CLICommand: cliCmd,
 	}
 
@@ -199,6 +218,8 @@ func (s *Server) handleExportDXF(w http.ResponseWriter, r *http.Request) {
 		Datum:        req.Datum,
 		CurveSamples: req.CurveSamples,
 		LayerName:    req.LayerName,
+		Weld:         req.Weld,
+		DXFFormat:    req.DXFFormat,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate DXF: "+err.Error(), http.StatusInternalServerError)
@@ -227,6 +248,8 @@ func (s *Server) handleExportSVG(w http.ResponseWriter, r *http.Request) {
 		Datum:        req.Datum,
 		CurveSamples: req.CurveSamples,
 		LayerName:    req.LayerName,
+		Weld:         req.Weld,
+		DXFFormat:    req.DXFFormat,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate SVG: "+err.Error(), http.StatusInternalServerError)

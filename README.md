@@ -66,6 +66,8 @@ Export directly from your terminal:
 | `--leading` | `1.2` | Multi-line line spacing multiplier |
 | `--datum` | `"bottom-left"` | Origin reference: `bottom-left`, `center`, `top-left` |
 | `--format` | `"dxf"` | Output format: `dxf`, `svg` |
+| `--dxf-format` | `"spline"` | DXF entity format: `spline` (AutoCAD 2000 AC1015 true cubic B-splines), `polyline` (R12/2000 LWPOLYLINE) |
+| `--weld` | `false` | Weld overlapping letters into a continuous manifold loop (boolean union) |
 | `--out` | `""` | Output filepath |
 | `--port` | `8080` | Local port for Web Studio |
 | `--no-browser`| `false` | Do not auto-launch browser on startup |

@@ -122,6 +122,10 @@
           <span class="status-value layer-cut-tag" id="readout-layer">CUT (ACI 1)</span>
         </div>
         <div class="status-item">
+          <span class="status-label">Topology:</span>
+          <span class="status-value badge-dimension" id="readout-topology">Standard</span>
+        </div>
+        <div class="status-item">
           <span class="status-label">Elements:</span>
           <span class="status-value" id="readout-stats">0 Glyphs | 0 Paths</span>
         </div>
@@ -220,12 +224,35 @@
           </div>
         </div>
 
-        <!-- 4. CAM & Export Options -->
+        <!-- 4. 3D CAD & CAM Setup -->
         <div class="control-card">
           <div class="card-header">
-            <h3>CAM & Coordinate Setup</h3>
+            <h3>3D CAD & CAM Setup</h3>
+            <span class="badge-mini" id="cad-mode-tag">AC1015 Spline</span>
           </div>
           <div class="card-body">
+            <!-- Path Welding (Boolean Union) Toggle -->
+            <div class="toggle-control-row">
+              <div class="toggle-text">
+                <label for="toggle-weld" class="toggle-label">Weld Overlapping Letters</label>
+                <span class="toggle-hint">Boolean union into unified outer boundary; preserves counters</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="toggle-weld">
+                <span class="slider round"></span>
+              </label>
+            </div>
+
+            <!-- DXF Entity Format -->
+            <div class="form-group">
+              <label for="select-dxf-format">DXF Entity Format</label>
+              <select id="select-dxf-format" class="styled-select">
+                <option value="spline" selected>AutoCAD 2000 Splines (SPLINE/LINE - AC1015)</option>
+                <option value="polyline">Polylines (LWPOLYLINE / R12 - AC1009)</option>
+              </select>
+              <span class="form-hint">True Splines export exact Bézier curves for smooth 3D CAD sketch extrusion</span>
+            </div>
+
             <!-- Datum Origin -->
             <div class="form-group">
               <label>Origin Datum Point (0,0)</label>
@@ -247,7 +274,7 @@
             </div>
 
             <!-- Curve Smoothness -->
-            <div class="form-group">
+            <div class="form-group" id="group-curve-samples">
               <label for="select-samples">Bézier Polyline Smoothness</label>
               <select id="select-samples" class="styled-select">
                 <option value="12">Standard (12 segments/curve)</option>

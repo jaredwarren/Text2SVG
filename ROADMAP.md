@@ -25,28 +25,29 @@ Importing standard text into CAD software is notoriously painful:
 
 ---
 
-## Phase 1: 3D CAD Sketch Readiness & Robust Profile Geometry
+## Phase 1: 3D CAD Sketch Readiness & Robust Profile Geometry (Completed)
 
 Targeted at ensuring imported sketch profiles extrude flawlessly in Fusion 360, SolidWorks, and FreeCAD on the very first click.
 
-### 1.1 True DXF Splines (AutoCAD 2000+ `SPLINE` Entities)
+### 1.1 True DXF Splines (AutoCAD 2000+ `SPLINE` Entities) - [x] Completed
 - **Problem**: Linearized polylines produce hundreds of flat planar facets when extruded, resulting in heavy geometry and preventing smooth fillets/chamfers along letter edges.
-- **Solution**: Implement DXF 2000 (`AC1015`) export generating native **cubic B-splines (`SPLINE` entities)** with exact control points and knot vectors matching the font's Bézier curves.
-- **Impact**: Produces true smooth curved surfaces in 3D CAD with 80% smaller file sizes and zero sketch solver lag.
+- **Solution**: Implemented DXF 2000 (`AC1015`) export generating native **cubic B-splines (`SPLINE` entities)** with exact control points and knot vectors matching the font's Bézier curves, plus quadratic-to-cubic degree elevation and native `LINE` entities.
+- **Impact**: Produces true smooth curved surfaces in 3D CAD with ~50% smaller file sizes and zero sketch solver lag.
 
-### 1.2 Path Welding (Boolean Union for Manifold Extrusions)
+### 1.2 Path Welding (Boolean Union for Manifold Extrusions) - [x] Completed
 - **Problem**: When cursive or tightly-kerned letters overlap, the intersecting lines create multiple crossing profile regions. CAD extruders will either fail with "Self-intersecting curve" or require manually selecting dozens of tiny nested regions.
-- **Solution**: Implement polygon boolean union (Clipper algorithm in Go) to automatically merge overlapping glyphs into a single continuous outer boundary.
+- **Solution**: Implemented polygon boolean union (Martínez algorithm in pure Go) to automatically merge overlapping glyphs into a single continuous outer boundary.
 - **Features**:
   - Automatically merges outer overlapping strokes into a unified closed loop.
   - Automatically preserves inner counter loops (holes in `e`, `o`, `a`, `d`, `b`, etc.).
-  - Toggle: `[x] Weld Overlapping Letters`.
+  - Toggle: `[x] Weld Overlapping Letters` (CLI `--weld` and Web Studio toggle).
 
-### 1.3 Manifold Profile Cleanup & Hole Hierarchy
+### 1.3 Manifold Profile Cleanup & Hole Hierarchy - [x] Completed
 - **Problem**: CAD sketch solvers require explicit closed loops and fail if start and end vertices don't connect with exact tolerance, or if zero-length micro-segments exist.
 - **Solution**:
-  - Strict vertex deduplication and loop closure verification.
-  - Orientation tagging: Outer boundaries oriented clockwise, inner holes (counters) oriented counter-clockwise, enabling CAD engines to immediately recognize which areas are solid vs hollow.
+  - Strict vertex deduplication, collinear segment reduction, and loop closure verification.
+  - Orientation tagging: Outer boundaries oriented clockwise (CW), inner holes (counters) oriented counter-clockwise (CCW), enabling CAD engines to immediately recognize which areas are solid vs hollow.
+  - Containment nesting depth analysis (0=outer, 1=hole, 2=island).
 
 ---
 

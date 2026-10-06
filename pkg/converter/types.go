@@ -42,16 +42,26 @@ const (
 	UnitsPixels Units = "px"
 )
 
+// DXFFormat defines the DXF export entity format.
+type DXFFormat string
+
+const (
+	DXFFormatSpline   DXFFormat = "spline"   // AutoCAD 2000 (AC1015) true cubic B-SPLINE + LINE entities
+	DXFFormatPolyline DXFFormat = "polyline" // Closed POLYLINE / LWPOLYLINE entities
+)
+
 // TextParams defines all parameters for text shaping and vector export.
 type TextParams struct {
-	Text         string  `json:"text"`
-	Size         float64 `json:"size"`          // Target height in chosen units
-	Units        Units   `json:"units"`         // mm, in, px (default mm)
-	Kerning      float64 `json:"kerning"`       // Extra tracking/letter-spacing in chosen units
-	LineHeight   float64 `json:"line_height"`   // Multiplier (e.g. 1.2)
-	Datum        Datum   `json:"datum"`         // bottom-left, center, top-left
-	CurveSamples int     `json:"curve_samples"` // Segments per curve in DXF (default 16)
-	LayerName    string  `json:"layer_name"`    // DXF layer (e.g. "CUT", "ENGRAVE")
+	Text         string    `json:"text"`
+	Size         float64   `json:"size"`          // Target height in chosen units
+	Units        Units     `json:"units"`         // mm, in, px (default mm)
+	Kerning      float64   `json:"kerning"`       // Extra tracking/letter-spacing in chosen units
+	LineHeight   float64   `json:"line_height"`   // Multiplier (e.g. 1.2)
+	Datum        Datum     `json:"datum"`         // bottom-left, center, top-left
+	CurveSamples int       `json:"curve_samples"` // Segments per curve in DXF (default 16)
+	LayerName    string    `json:"layer_name"`    // DXF layer (e.g. "CUT", "ENGRAVE")
+	Weld         bool      `json:"weld"`          // Path welding: boolean union for overlapping letters
+	DXFFormat    DXFFormat `json:"dxf_format"`    // "spline" (AutoCAD 2000 SPLINE) or "polyline"
 }
 
 // Contour represents a continuous path loop (sequence of points).
@@ -85,10 +95,14 @@ type GlyphGeometry struct {
 
 // RenderResult contains the final computed vectors, dimensions, and outputs.
 type RenderResult struct {
-	Contours   []Contour   `json:"contours"`
-	Bounds     BoundingBox `json:"bounds"`
-	SVG        string      `json:"svg"`
-	DXF        string      `json:"dxf"`
-	GlyphCount int         `json:"glyph_count"`
-	PathCount  int         `json:"path_count"`
+	Contours        []Contour           `json:"contours"`
+	ClassifiedPaths []ClassifiedContour `json:"classified_paths,omitempty"`
+	Bounds          BoundingBox         `json:"bounds"`
+	SVG             string              `json:"svg"`
+	DXF             string              `json:"dxf"`
+	GlyphCount      int                 `json:"glyph_count"`
+	PathCount       int                 `json:"path_count"`
+	Welded          bool                `json:"welded"`
+	DXFFormat       string              `json:"dxf_format"`
 }
+

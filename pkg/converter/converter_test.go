@@ -18,7 +18,8 @@ func TestFullConversionPipeline(t *testing.T) {
 		t.Fatalf("ParseFont failed: %v", err)
 	}
 
-	params := TextParams{
+	// 1. Test Polyline DXF mode (R12 / AC1009)
+	paramsPolyline := TextParams{
 		Text:         "DXF Cut 123",
 		Size:         30.0, // 30 mm
 		Units:        UnitsMM,
@@ -27,9 +28,10 @@ func TestFullConversionPipeline(t *testing.T) {
 		Datum:        DatumBottomLeft,
 		CurveSamples: 16,
 		LayerName:    "CUT",
+		DXFFormat:    DXFFormatPolyline,
 	}
 
-	result, err := lf.LayoutText(params)
+	result, err := lf.LayoutText(paramsPolyline)
 	if err != nil {
 		t.Fatalf("LayoutText failed: %v", err)
 	}
@@ -51,7 +53,7 @@ func TestFullConversionPipeline(t *testing.T) {
 			result.Bounds.MinX, result.Bounds.MinY)
 	}
 
-	// Verify DXF structure
+	// Verify DXF structure for Polyline mode
 	if !strings.Contains(result.DXF, "AC1009") {
 		t.Errorf("Expected DXF to contain AC1009 header")
 	}
@@ -62,6 +64,28 @@ func TestFullConversionPipeline(t *testing.T) {
 		t.Errorf("Expected DXF to contain EOF")
 	}
 
+	// 2. Test True DXF Spline mode (AC1015 / SPLINE / LINE)
+	paramsSpline := TextParams{
+		Text:         "CAD Extrude",
+		Size:         25.0,
+		Units:        UnitsMM,
+		Datum:        DatumCenter,
+		DXFFormat:    DXFFormatSpline,
+	}
+	resSpline, err := lf.LayoutText(paramsSpline)
+	if err != nil {
+		t.Fatalf("LayoutText Spline failed: %v", err)
+	}
+	if !strings.Contains(resSpline.DXF, "AC1015") {
+		t.Errorf("Expected Spline DXF to contain AC1015 header")
+	}
+	if !strings.Contains(resSpline.DXF, "SPLINE") {
+		t.Errorf("Expected Spline DXF to contain SPLINE entities")
+	}
+	if !strings.Contains(resSpline.DXF, "AcDbSpline") {
+		t.Errorf("Expected Spline DXF to contain AcDbSpline sub-class")
+	}
+
 	// Verify SVG structure
 	if !strings.Contains(result.SVG, "<svg") || !strings.Contains(result.SVG, "</svg>") {
 		t.Errorf("Expected valid SVG tags")
@@ -70,5 +94,6 @@ func TestFullConversionPipeline(t *testing.T) {
 		t.Errorf("Expected SVG viewBox attribute")
 	}
 
-	t.Logf("DXF length: %d bytes, SVG length: %d bytes", len(result.DXF), len(result.SVG))
+	t.Logf("Polyline DXF length: %d bytes, Spline DXF length: %d bytes, SVG length: %d bytes",
+		len(result.DXF), len(resSpline.DXF), len(result.SVG))
 }

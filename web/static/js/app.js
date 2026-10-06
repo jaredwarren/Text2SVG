@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     datum: "bottom-left",
     layer_name: "CUT",
     curve_samples: 20,
+    weld: false,
+    dxf_format: "spline", // "spline" | "polyline"
     view_mode: "wireframe", // "wireframe" | "fill"
     zoom: 1.0,
   };
@@ -36,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const datumButtons = document.querySelectorAll('.pill-btn');
   const selectLayer = document.getElementById('select-layer');
   const selectSamples = document.getElementById('select-samples');
+  const toggleWeld = document.getElementById('toggle-weld');
+  const selectDxfFormat = document.getElementById('select-dxf-format');
+  const cadModeTag = document.getElementById('cad-mode-tag');
 
   const btnModeWireframe = document.getElementById('btn-mode-wireframe');
   const btnModeFill = document.getElementById('btn-mode-fill');
@@ -50,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const readoutDims = document.getElementById('readout-dims');
   const readoutDatum = document.getElementById('readout-datum');
   const readoutLayer = document.getElementById('readout-layer');
+  const readoutTopology = document.getElementById('readout-topology');
   const readoutStats = document.getElementById('readout-stats');
   const charCounter = document.getElementById('char-counter');
   const cliPreviewCode = document.getElementById('cli-preview-code');
@@ -128,6 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
           datum: state.datum,
           curve_samples: parseInt(state.curve_samples, 10),
           layer_name: state.layer_name,
+          weld: Boolean(state.weld),
+          dxf_format: state.dxf_format,
         })
       });
 
@@ -147,6 +155,13 @@ document.addEventListener('DOMContentLoaded', () => {
       readoutDims.textContent = `${data.width.toFixed(2)} × ${data.height.toFixed(2)} ${state.units}`;
       readoutDatum.textContent = formatDatumLabel(state.datum);
       readoutLayer.textContent = `${state.layer_name} (${getLayerColorName(state.layer_name)})`;
+      if (readoutTopology) {
+        readoutTopology.textContent = data.welded ? "Manifold (Welded)" : "Standard";
+        readoutTopology.style.color = data.welded ? "#34d399" : "";
+      }
+      if (cadModeTag) {
+        cadModeTag.textContent = state.dxf_format === 'spline' ? 'AC1015 Spline' : 'AC1009 Poly';
+      }
       readoutStats.textContent = `${data.glyph_count} Glyphs | ${data.path_count} Loops`;
 
       // Update CLI snippet
@@ -301,6 +316,25 @@ document.addEventListener('DOMContentLoaded', () => {
     triggerUpdate();
   });
 
+  // Path Welding Toggle
+  if (toggleWeld) {
+    toggleWeld.addEventListener('change', () => {
+      state.weld = toggleWeld.checked;
+      triggerUpdate();
+    });
+  }
+
+  // DXF Entity Format Select
+  if (selectDxfFormat) {
+    selectDxfFormat.addEventListener('change', () => {
+      state.dxf_format = selectDxfFormat.value;
+      if (cadModeTag) {
+        cadModeTag.textContent = state.dxf_format === 'spline' ? 'AC1015 Spline' : 'AC1009 Poly';
+      }
+      triggerUpdate();
+    });
+  }
+
   // View Mode Buttons
   btnModeWireframe.addEventListener('click', () => {
     state.view_mode = 'wireframe';
@@ -398,18 +432,31 @@ document.addEventListener('DOMContentLoaded', () => {
         state.layer_name = 'CUT';
         state.view_mode = 'wireframe';
         state.units = 'mm';
+        state.weld = true;
+        state.dxf_format = 'polyline';
         selectLayer.value = 'CUT';
+        if (toggleWeld) toggleWeld.checked = true;
+        if (selectDxfFormat) selectDxfFormat.value = 'polyline';
+        if (cadModeTag) cadModeTag.textContent = 'AC1009 Poly';
       } else if (preset === 'cad') {
         state.datum = 'center';
         state.layer_name = 'CUT';
         state.view_mode = 'wireframe';
         state.units = 'mm';
         state.curve_samples = 36;
+        state.weld = true;
+        state.dxf_format = 'spline';
         selectSamples.value = '36';
+        if (toggleWeld) toggleWeld.checked = true;
+        if (selectDxfFormat) selectDxfFormat.value = 'spline';
+        if (cadModeTag) cadModeTag.textContent = 'AC1015 Spline';
       } else if (preset === 'vector') {
         state.view_mode = 'fill';
         state.datum = 'top-left';
         state.units = 'px';
+        state.weld = false;
+        state.dxf_format = 'spline';
+        if (toggleWeld) toggleWeld.checked = false;
       }
 
       // Sync UI buttons
@@ -439,6 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
           datum: state.datum,
           curve_samples: parseInt(state.curve_samples, 10),
           layer_name: state.layer_name,
+          weld: Boolean(state.weld),
+          dxf_format: state.dxf_format,
         })
       });
 

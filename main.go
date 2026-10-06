@@ -27,6 +27,8 @@ func main() {
 	datumFlag := flag.String("datum", "bottom-left", "Origin datum point: bottom-left, center, top-left")
 	unitsFlag := flag.String("units", "mm", "Physical units: mm, in, px")
 	formatFlag := flag.String("format", "dxf", "Export format: dxf, svg")
+	dxfFormatFlag := flag.String("dxf-format", "spline", "DXF entity format: spline (AutoCAD 2000 AC1015 cubic SPLINE), polyline (R12/2000 LWPOLYLINE)")
+	weldFlag := flag.Bool("weld", false, "Weld overlapping letters into manifold profile (boolean union)")
 	outFlag := flag.String("out", "", "Output destination filepath (e.g. output.dxf)")
 	portFlag := flag.Int("port", 8080, "Port for web studio server")
 	noBrowserFlag := flag.Bool("no-browser", false, "Do not automatically launch web browser")
@@ -38,7 +40,7 @@ func main() {
 
 	// 1. Headless CLI Mode
 	if *textFlag != "" {
-		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *outFlag)
+		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *outFlag)
 		return
 	}
 
@@ -46,7 +48,7 @@ func main() {
 	runServer(fontMgr, *portFlag, !*noBrowserFlag)
 }
 
-func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, outPath string) {
+func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, outPath string) {
 	// Try loading font from path if it's a file, otherwise lookup in manager
 	var lf *converter.LoadedFont
 	if data, err := os.ReadFile(fontPath); err == nil {
@@ -74,6 +76,8 @@ func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leadin
 		Datum:        converter.Datum(datumStr),
 		CurveSamples: 20,
 		LayerName:    "CUT",
+		Weld:         weld,
+		DXFFormat:    converter.DXFFormat(dxfFormatStr),
 	}
 
 	result, err := lf.LayoutText(params)
