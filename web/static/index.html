@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text2SVG // CAM & CAD Vector Studio</title>
+  <meta name="description" content="Convert custom fonts and typography to CAM-ready DXF and SVG vectors with precision kerning, size, and origin controls.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/studio.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation Bar -->
+  <header class="studio-header">
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 7V4h16v3M9 20h6M12 4v16" stroke="#ef4444" />
+          <path d="M19 12l3 3-3 3M5 12l-3 3 3 3" stroke="#3b82f6" stroke-width="1.5" />
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>Text2SVG <span class="badge-tag">CAM STUDIO</span></h1>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="preset-selector">
+      <span class="preset-label">Preset:</span>
+      <button class="preset-chip active" id="preset-laser" data-preset="laser">Laser Cut</button>
+      <button class="preset-chip" id="preset-cad" data-preset="cad">3D CAD Sketch</button>
+      <button class="preset-chip" id="preset-vector" data-preset="vector">Graphic Vector</button>
+    </div>
+
+    <!-- Quick Export Bar -->
+    <div class="header-actions">
+      <button class="btn btn-secondary" id="btn-copy-cli" title="Copy CLI Command">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copy CLI</span>
+      </button>
+      <button class="btn btn-secondary" id="btn-quick-svg">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Export SVG</span>
+      </button>
+      <button class="btn btn-primary" id="btn-quick-dxf">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span>Export DXF</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Split Studio Layout -->
+  <main class="studio-workspace">
+    <!-- Viewport Container (Left) -->
+    <section class="viewport-panel">
+      <!-- Viewport Floating Controls -->
+      <div class="viewport-toolbar">
+        <div class="btn-group">
+          <button class="tool-btn active" id="btn-mode-wireframe" title="Cut Path Wireframe">
+            <span class="icon-dot red-dot"></span> Wireframe
+          </button>
+          <button class="tool-btn" id="btn-mode-fill" title="Filled Graphic Preview">
+            <span class="icon-dot white-dot"></span> Fill
+          </button>
+        </div>
+
+        <div class="btn-group">
+          <button class="tool-btn" id="btn-zoom-in" title="Zoom In">+</button>
+          <button class="tool-btn" id="btn-zoom-reset" title="Reset Zoom">100%</button>
+          <button class="tool-btn" id="btn-zoom-out" title="Zoom Out">−</button>
+        </div>
+
+        <button class="tool-btn" id="btn-toggle-grid" title="Toggle Grid Overlay">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Grid
+        </button>
+      </div>
+
+      <!-- Canvas Area with Engineering Grid -->
+      <div class="canvas-stage" id="canvas-stage">
+        <div class="canvas-transform-wrapper" id="canvas-wrapper">
+          <!-- Origin Axis Crosshair (0,0) -->
+          <div class="origin-crosshair" id="origin-indicator">
+            <div class="origin-label">DATUM (0,0)</div>
+          </div>
+          <!-- Live SVG Preview Container -->
+          <div class="svg-render-container" id="svg-container">
+            <!-- Dynamic SVG injected here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Viewport Footer Status Bar -->
+      <footer class="viewport-statusbar">
+        <div class="status-item">
+          <span class="status-label">Dimensions:</span>
+          <span class="status-value badge-dimension" id="readout-dims">0.0 × 0.0 mm</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Datum:</span>
+          <span class="status-value" id="readout-datum">Bottom-Left (0,0)</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Layer:</span>
+          <span class="status-value layer-cut-tag" id="readout-layer">CUT (ACI 1)</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Elements:</span>
+          <span class="status-value" id="readout-stats">0 Glyphs | 0 Paths</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- Sidebar Controls (Right) -->
+    <aside class="controls-sidebar">
+      <div class="sidebar-scroll">
+
+        <!-- 1. Text Input Card -->
+        <div class="control-card">
+          <div class="card-header">
+            <h3>Message</h3>
+            <span class="char-count" id="char-counter">0 chars</span>
+          </div>
+          <div class="card-body">
+            <textarea id="input-text" rows="2" placeholder="Type your custom text here... (Multi-line supported)" spellcheck="false">LASER CUT 2026</textarea>
+          </div>
+        </div>
+
+        <!-- 2. Font Selection & Upload Card -->
+        <div class="control-card">
+          <div class="card-header">
+            <h3>Font Selection</h3>
+            <span class="badge-mini" id="font-source-tag">System</span>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="select-font">Active Font</label>
+              <select id="select-font" class="styled-select">
+                <option value="">Loading fonts...</option>
+              </select>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div class="font-dropzone" id="font-dropzone">
+              <input type="file" id="font-file-input" accept=".ttf,.otf,.woff" style="display: none;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="dropzone-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p class="dropzone-prompt"><strong>Drop custom font file</strong> or <u>browse</u></p>
+              <span class="dropzone-sub">Supports .ttf, .otf, .woff</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Dimension & Typography Parameters -->
+        <div class="control-card">
+          <div class="card-header">
+            <h3>Typography & Scale</h3>
+            <div class="unit-toggle" id="unit-toggle-group">
+              <button class="unit-btn active" data-unit="mm">mm</button>
+              <button class="unit-btn" data-unit="in">in</button>
+              <button class="unit-btn" data-unit="px">px</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Font Size -->
+            <div class="param-slider-group">
+              <div class="param-label-row">
+                <label for="input-size">Size / Em-Height</label>
+                <div class="param-val-input">
+                  <input type="number" id="input-size-num" min="1" max="500" step="0.5" value="30.0">
+                  <span class="unit-label">mm</span>
+                </div>
+              </div>
+              <input type="range" id="input-size-range" min="5" max="150" step="0.5" value="30.0" class="styled-range">
+            </div>
+
+            <!-- Kerning / Letter Spacing -->
+            <div class="param-slider-group">
+              <div class="param-label-row">
+                <label for="input-kerning">Kerning / Tracking</label>
+                <div class="param-val-input">
+                  <input type="number" id="input-kerning-num" min="-10" max="50" step="0.1" value="0.0">
+                  <span class="unit-label">mm</span>
+                </div>
+              </div>
+              <input type="range" id="input-kerning-range" min="-5" max="25" step="0.1" value="0.0" class="styled-range">
+            </div>
+
+            <!-- Line Height (Leading) -->
+            <div class="param-slider-group">
+              <div class="param-label-row">
+                <label for="input-leading">Line Height (Leading)</label>
+                <div class="param-val-input">
+                  <input type="number" id="input-leading-num" min="0.5" max="3.0" step="0.05" value="1.20">
+                  <span class="unit-label">x</span>
+                </div>
+              </div>
+              <input type="range" id="input-leading-range" min="0.8" max="2.2" step="0.05" value="1.20" class="styled-range">
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. CAM & Export Options -->
+        <div class="control-card">
+          <div class="card-header">
+            <h3>CAM & Coordinate Setup</h3>
+          </div>
+          <div class="card-body">
+            <!-- Datum Origin -->
+            <div class="form-group">
+              <label>Origin Datum Point (0,0)</label>
+              <div class="pill-group" id="datum-pill-group">
+                <button class="pill-btn active" data-datum="bottom-left">Bottom-Left (CNC)</button>
+                <button class="pill-btn" data-datum="center">Center</button>
+                <button class="pill-btn" data-datum="top-left">Top-Left</button>
+              </div>
+            </div>
+
+            <!-- DXF Layer & Color -->
+            <div class="form-group">
+              <label for="select-layer">CAM Layer & Color</label>
+              <select id="select-layer" class="styled-select">
+                <option value="CUT" selected>CUT (Red - ACI 1)</option>
+                <option value="ENGRAVE">ENGRAVE (Blue - ACI 5)</option>
+                <option value="SCORE">SCORE (Yellow - ACI 2)</option>
+              </select>
+            </div>
+
+            <!-- Curve Smoothness -->
+            <div class="form-group">
+              <label for="select-samples">Bézier Polyline Smoothness</label>
+              <select id="select-samples" class="styled-select">
+                <option value="12">Standard (12 segments/curve)</option>
+                <option value="20" selected>High Precision (20 segments/curve)</option>
+                <option value="36">Ultra Smooth (36 segments/curve)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Export Actions & CLI Snippet -->
+        <div class="control-card export-card">
+          <div class="card-header">
+            <h3>Generate & Export</h3>
+          </div>
+          <div class="card-body">
+            <div class="export-btn-grid">
+              <button class="btn btn-primary btn-large" id="btn-export-dxf">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                Export DXF (AutoCAD R12)
+              </button>
+              <button class="btn btn-secondary btn-large" id="btn-export-svg">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Export SVG (Vector Path)
+              </button>
+            </div>
+
+            <!-- CLI Command Snippet Box -->
+            <div class="cli-snippet-box">
+              <div class="cli-header">
+                <span>CLI COMMAND</span>
+                <button class="btn-copy-mini" id="btn-copy-cli-mini">Copy</button>
+              </div>
+              <code id="cli-preview-code">text2svg --text "LASER CUT 2026" --font Arial --size 30 --format dxf --out export.dxf</code>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast-notification" id="toast">Copied to clipboard!</div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

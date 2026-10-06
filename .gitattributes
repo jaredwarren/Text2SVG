@@ -1,0 +1,30 @@
+# Auto-detect text files and normalize line endings to LF
+* text=auto eol=lf
+
+# Go source files
+*.go text eol=lf diff=golang
+
+# Web front-end files
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Documentation & Config
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Makefile text eol=lf
+
+# Binary font formats
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Graphic assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

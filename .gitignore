@@ -1,0 +1,57 @@
+# Binaries & build artifacts
+/text2svg
+text2svg.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+build/
+out/
+
+# Test artifacts & coverage
+*.test
+*.out
+coverage.html
+coverage.out
+profile.out
+*.prof
+
+# Exported vector / CAM scratch files
+*.dxf
+*.svg
+!web/**/*.svg
+
+# Local user font drop folder
+fonts/*
+!fonts/.gitkeep
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor & IDE configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Local environment & log files
+.env
+.env.*
+*.tmp
+*.log
