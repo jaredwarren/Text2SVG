@@ -28,12 +28,12 @@ func TestWeldBrushScript(t *testing.T) {
 
 	// 1. Unwelded layout with negative kerning: letters overlap with separate crossing loops
 	unweldedRes, err := lf.LayoutText(TextParams{
-		Text:       "California",
-		Size:       30.0,
-		Units:      UnitsMM,
-		Kerning:    -0.8,
-		Datum:      DatumBottomLeft,
-		Weld:       false,
+		Text:    "California",
+		Size:    30.0,
+		Units:   UnitsMM,
+		Kerning: -0.8,
+		Datum:   DatumBottomLeft,
+		Weld:    false,
 	})
 	if err != nil {
 		t.Fatalf("Unwelded LayoutText error: %v", err)
@@ -41,12 +41,12 @@ func TestWeldBrushScript(t *testing.T) {
 
 	// 2. Welded layout: overlapping strokes merged into unified continuous outer loops
 	weldedRes, err := lf.LayoutText(TextParams{
-		Text:       "California",
-		Size:       30.0,
-		Units:      UnitsMM,
-		Kerning:    -0.8,
-		Datum:      DatumBottomLeft,
-		Weld:       true,
+		Text:    "California",
+		Size:    30.0,
+		Units:   UnitsMM,
+		Kerning: -0.8,
+		Datum:   DatumBottomLeft,
+		Weld:    true,
 	})
 	if err != nil {
 		t.Fatalf("Welded LayoutText error: %v", err)

@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
     curve_samples: 20,
     weld: false,
     dxf_format: "spline", // "spline" | "polyline"
+    slant_angle: 0.0,
+    offset: 0.0,
+    corner_join: "round",
+    arc_enabled: false,
+    arc_radius: 60.0,
+    arc_sweep: 0.0,
+    arc_align: "center",
+    arc_inward: false,
     view_mode: "wireframe", // "wireframe" | "fill"
     zoom: 1.0,
   };
@@ -34,8 +42,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputLeadingRange = document.getElementById('input-leading-range');
   const inputLeadingNum = document.getElementById('input-leading-num');
 
+  // Phase 2 Elements
+  const inputSlantRange = document.getElementById('input-slant-range');
+  const inputSlantNum = document.getElementById('input-slant-num');
+  const inputOffsetRange = document.getElementById('input-offset-range');
+  const inputOffsetNum = document.getElementById('input-offset-num');
+  const selectCornerJoin = document.getElementById('select-corner-join');
+  const toggleArc = document.getElementById('toggle-arc');
+  const arcOptionsPanel = document.getElementById('arc-options-panel');
+  const inputArcRadiusRange = document.getElementById('input-arc-radius-range');
+  const inputArcRadiusNum = document.getElementById('input-arc-radius-num');
+  const inputArcSweepRange = document.getElementById('input-arc-sweep-range');
+  const inputArcSweepNum = document.getElementById('input-arc-sweep-num');
+  const arcAlignButtons = document.querySelectorAll('#arc-align-pill-group .pill-btn');
+  const toggleArcInward = document.getElementById('toggle-arc-inward');
+  const shapingModeTag = document.getElementById('shaping-mode-tag');
+
   const unitButtons = document.querySelectorAll('.unit-btn');
-  const datumButtons = document.querySelectorAll('.pill-btn');
+  const datumButtons = document.querySelectorAll('#datum-pill-group .pill-btn');
   const selectLayer = document.getElementById('select-layer');
   const selectSamples = document.getElementById('select-samples');
   const toggleWeld = document.getElementById('toggle-weld');
@@ -136,6 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
           layer_name: state.layer_name,
           weld: Boolean(state.weld),
           dxf_format: state.dxf_format,
+          slant_angle: parseFloat(state.slant_angle),
+          offset: parseFloat(state.offset),
+          corner_join: state.corner_join,
+          arc_enabled: Boolean(state.arc_enabled),
+          arc_radius: parseFloat(state.arc_radius),
+          arc_sweep: parseFloat(state.arc_sweep),
+          arc_align: state.arc_align,
+          arc_inward: Boolean(state.arc_inward),
         })
       });
 
@@ -161,6 +193,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (cadModeTag) {
         cadModeTag.textContent = state.dxf_format === 'spline' ? 'AC1015 Spline' : 'AC1009 Poly';
+      }
+      if (shapingModeTag) {
+        const parts = [];
+        if (state.arc_enabled) parts.push("Arc");
+        if (state.slant_angle !== 0) parts.push(`${state.slant_angle > 0 ? '+' : ''}${state.slant_angle}°`);
+        if (state.offset !== 0) parts.push(`${state.offset > 0 ? '+' : ''}${state.offset}${state.units}`);
+        shapingModeTag.textContent = parts.length > 0 ? parts.join(' · ') : 'Direct';
+        shapingModeTag.style.color = parts.length > 0 ? '#60a5fa' : '';
       }
       readoutStats.textContent = `${data.glyph_count} Glyphs | ${data.path_count} Loops`;
 
@@ -281,6 +321,99 @@ document.addEventListener('DOMContentLoaded', () => {
     triggerUpdate();
   });
 
+  // Phase 2: Slant Angle Sync
+  if (inputSlantRange && inputSlantNum) {
+    inputSlantRange.addEventListener('input', () => {
+      state.slant_angle = parseFloat(inputSlantRange.value);
+      inputSlantNum.value = Math.round(state.slant_angle);
+      triggerUpdate();
+    });
+    inputSlantNum.addEventListener('input', () => {
+      state.slant_angle = parseFloat(inputSlantNum.value) || 0.0;
+      inputSlantRange.value = state.slant_angle;
+      triggerUpdate();
+    });
+  }
+
+  // Phase 2: Tolerance Offset Sync
+  if (inputOffsetRange && inputOffsetNum) {
+    inputOffsetRange.addEventListener('input', () => {
+      state.offset = parseFloat(inputOffsetRange.value);
+      inputOffsetNum.value = state.offset.toFixed(2);
+      triggerUpdate();
+    });
+    inputOffsetNum.addEventListener('input', () => {
+      state.offset = parseFloat(inputOffsetNum.value) || 0.0;
+      inputOffsetRange.value = state.offset;
+      triggerUpdate();
+    });
+  }
+
+  // Phase 2: Corner Join Style
+  if (selectCornerJoin) {
+    selectCornerJoin.addEventListener('change', () => {
+      state.corner_join = selectCornerJoin.value;
+      triggerUpdate();
+    });
+  }
+
+  // Phase 2: Text-on-a-Curve (Arc) Toggle
+  if (toggleArc) {
+    toggleArc.addEventListener('change', () => {
+      state.arc_enabled = toggleArc.checked;
+      if (arcOptionsPanel) {
+        arcOptionsPanel.style.display = state.arc_enabled ? 'flex' : 'none';
+      }
+      triggerUpdate();
+    });
+  }
+
+  // Phase 2: Arc Radius Sync
+  if (inputArcRadiusRange && inputArcRadiusNum) {
+    inputArcRadiusRange.addEventListener('input', () => {
+      state.arc_radius = parseFloat(inputArcRadiusRange.value);
+      inputArcRadiusNum.value = Math.round(state.arc_radius);
+      triggerUpdate();
+    });
+    inputArcRadiusNum.addEventListener('input', () => {
+      state.arc_radius = parseFloat(inputArcRadiusNum.value) || 60.0;
+      inputArcRadiusRange.value = state.arc_radius;
+      triggerUpdate();
+    });
+  }
+
+  // Phase 2: Arc Sweep Sync
+  if (inputArcSweepRange && inputArcSweepNum) {
+    inputArcSweepRange.addEventListener('input', () => {
+      state.arc_sweep = parseFloat(inputArcSweepRange.value);
+      inputArcSweepNum.value = Math.round(state.arc_sweep);
+      triggerUpdate();
+    });
+    inputArcSweepNum.addEventListener('input', () => {
+      state.arc_sweep = parseFloat(inputArcSweepNum.value) || 0.0;
+      inputArcSweepRange.value = state.arc_sweep;
+      triggerUpdate();
+    });
+  }
+
+  // Phase 2: Arc Align Pill Buttons
+  arcAlignButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      arcAlignButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.arc_align = btn.dataset.align;
+      triggerUpdate();
+    });
+  });
+
+  // Phase 2: Arc Inward Toggle
+  if (toggleArcInward) {
+    toggleArcInward.addEventListener('change', () => {
+      state.arc_inward = toggleArcInward.checked;
+      triggerUpdate();
+    });
+  }
+
   // Units Buttons
   unitButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -288,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active');
       state.units = btn.dataset.unit;
       document.querySelectorAll('.unit-label').forEach(el => {
-        if (el.textContent !== 'x') el.textContent = state.units;
+        if (el.textContent !== 'x' && el.textContent !== '°') el.textContent = state.units;
       });
       triggerUpdate();
     });
@@ -421,49 +554,51 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 5. Presets
+  function applyPreset(preset) {
+    presetChips.forEach(c => c.classList.toggle('active', c.dataset.preset === preset));
+
+    if (preset === 'laser') {
+      state.datum = 'bottom-left';
+      state.layer_name = 'CUT';
+      state.view_mode = 'wireframe';
+      state.units = 'mm';
+      state.weld = true;
+      state.dxf_format = 'polyline';
+      selectLayer.value = 'CUT';
+      if (toggleWeld) toggleWeld.checked = true;
+      if (selectDxfFormat) selectDxfFormat.value = 'polyline';
+      if (cadModeTag) cadModeTag.textContent = 'AC1009 Poly';
+    } else if (preset === 'cad') {
+      state.datum = 'center';
+      state.layer_name = 'CUT';
+      state.view_mode = 'wireframe';
+      state.units = 'mm';
+      state.curve_samples = 36;
+      state.weld = true;
+      state.dxf_format = 'spline';
+      selectSamples.value = '36';
+      if (toggleWeld) toggleWeld.checked = true;
+      if (selectDxfFormat) selectDxfFormat.value = 'spline';
+      if (cadModeTag) cadModeTag.textContent = 'AC1015 Spline';
+    } else if (preset === 'vector') {
+      state.view_mode = 'fill';
+      state.datum = 'top-left';
+      state.units = 'px';
+      state.weld = false;
+      state.dxf_format = 'spline';
+      if (toggleWeld) toggleWeld.checked = false;
+    }
+
+    // Sync UI buttons
+    datumButtons.forEach(b => b.classList.toggle('active', b.dataset.datum === state.datum));
+    unitButtons.forEach(b => b.classList.toggle('active', b.dataset.unit === state.units));
+    applyViewMode();
+    triggerUpdate();
+  }
+
   presetChips.forEach(chip => {
     chip.addEventListener('click', () => {
-      presetChips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      const preset = chip.dataset.preset;
-
-      if (preset === 'laser') {
-        state.datum = 'bottom-left';
-        state.layer_name = 'CUT';
-        state.view_mode = 'wireframe';
-        state.units = 'mm';
-        state.weld = true;
-        state.dxf_format = 'polyline';
-        selectLayer.value = 'CUT';
-        if (toggleWeld) toggleWeld.checked = true;
-        if (selectDxfFormat) selectDxfFormat.value = 'polyline';
-        if (cadModeTag) cadModeTag.textContent = 'AC1009 Poly';
-      } else if (preset === 'cad') {
-        state.datum = 'center';
-        state.layer_name = 'CUT';
-        state.view_mode = 'wireframe';
-        state.units = 'mm';
-        state.curve_samples = 36;
-        state.weld = true;
-        state.dxf_format = 'spline';
-        selectSamples.value = '36';
-        if (toggleWeld) toggleWeld.checked = true;
-        if (selectDxfFormat) selectDxfFormat.value = 'spline';
-        if (cadModeTag) cadModeTag.textContent = 'AC1015 Spline';
-      } else if (preset === 'vector') {
-        state.view_mode = 'fill';
-        state.datum = 'top-left';
-        state.units = 'px';
-        state.weld = false;
-        state.dxf_format = 'spline';
-        if (toggleWeld) toggleWeld.checked = false;
-      }
-
-      // Sync UI buttons
-      datumButtons.forEach(b => b.classList.toggle('active', b.dataset.datum === state.datum));
-      unitButtons.forEach(b => b.classList.toggle('active', b.dataset.unit === state.units));
-      applyViewMode();
-      triggerUpdate();
+      applyPreset(chip.dataset.preset);
     });
   });
 
@@ -488,6 +623,14 @@ document.addEventListener('DOMContentLoaded', () => {
           layer_name: state.layer_name,
           weld: Boolean(state.weld),
           dxf_format: state.dxf_format,
+          slant_angle: parseFloat(state.slant_angle),
+          offset: parseFloat(state.offset),
+          corner_join: state.corner_join,
+          arc_enabled: Boolean(state.arc_enabled),
+          arc_radius: parseFloat(state.arc_radius),
+          arc_sweep: parseFloat(state.arc_sweep),
+          arc_align: state.arc_align,
+          arc_inward: Boolean(state.arc_inward),
         })
       });
 
@@ -536,5 +679,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Start
+  applyPreset('laser');
   loadFonts();
 });

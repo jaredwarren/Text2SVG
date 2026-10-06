@@ -56,4 +56,3 @@ func QuadToCubic(p0, p1, p2 Point) (Point, Point, Point, Point) {
 	c3 := p2
 	return c0, c1, c2, c3
 }
-

@@ -20,9 +20,15 @@ Optimized for laser cutters, CNC routers, vinyl plotters, plasma cutters, and 3D
   - Kerning / Tracking adjustment.
   - Multi-line text with custom Line Height (Leading).
   - Selectable Datum Origin: **Bottom-Left (Standard CNC (0,0))**, **Center**, or **Top-Left**.
+- **3D CAD & Surface Shaping (Phase 1 & 2)**:
+  - **True DXF Splines**: AutoCAD 2000 (`AC1015`) native cubic B-spline (`SPLINE`) entities matching font Bézier curves for facet-free 3D sketch extrusion.
+  - **Boolean Path Welding**: Automatically merge overlapping script letters into unified manifold outer boundaries while preserving inner counters.
+  - **Text-on-a-Curve (Circular / Arc Text)**: Conformal circular arc mapping with alignment (`center`, `left`, `right`) and inward/outward orientation for rotary dials and cylindrical embossing.
+  - **Tolerance & Kerf Inset/Offset**: Inward/outward curve offsetting with `round`, `miter`, and `bevel` corner joins for press-fit 3D prints and CNC tool kerf compensation.
+  - **Simulated Slant (Oblique)**: Affine shear transform slider (-45° to +45°) along baseline for custom italic slants.
 - **Vector & DXF Output**:
-  - AutoCAD Release 12 / 2000 compliant DXF (`AC1009`).
-  - Closed `POLYLINE` entities with clean vertices.
+  - AutoCAD Release 12 / 2000 compliant DXF (`AC1015` Splines or `AC1009` Polylines).
+  - Closed `POLYLINE` and `SPLINE` entities with verified loop closure.
   - Standard CAM layer tagging: `CUT` (Red / ACI 1), `ENGRAVE` (Blue / ACI 5), `SCORE` (Yellow / ACI 2).
   - Standard SVG output with calibrated physical units (`mm`, `in`) and viewBox.
 
@@ -68,6 +74,14 @@ Export directly from your terminal:
 | `--format` | `"dxf"` | Output format: `dxf`, `svg` |
 | `--dxf-format` | `"spline"` | DXF entity format: `spline` (AutoCAD 2000 AC1015 true cubic B-splines), `polyline` (R12/2000 LWPOLYLINE) |
 | `--weld` | `false` | Weld overlapping letters into a continuous manifold loop (boolean union) |
+| `--slant` | `0.0` | Simulated slant/oblique angle in degrees (-45.0 to 45.0) |
+| `--offset` | `0.0` | Tolerance / kerf offset in units (positive expands solid / contracts holes) |
+| `--corner-join` | `"round"` | Corner join style for offset: `round`, `miter`, `bevel` |
+| `--arc` | `false` | Enable circular / arc text-on-a-curve deformation |
+| `--arc-radius` | `50.0` | Arc radius in target units |
+| `--arc-sweep` | `0.0` | Arc sweep angle in degrees (0 = auto-compute from text width) |
+| `--arc-align` | `"center"` | Arc alignment: `center`, `left`, `right` |
+| `--arc-inward` | `false` | Orient text inward toward arc center |
 | `--out` | `""` | Output filepath |
 | `--port` | `8080` | Local port for Web Studio |
 | `--no-browser`| `false` | Do not auto-launch browser on startup |

@@ -66,11 +66,11 @@ func TestFullConversionPipeline(t *testing.T) {
 
 	// 2. Test True DXF Spline mode (AC1015 / SPLINE / LINE)
 	paramsSpline := TextParams{
-		Text:         "CAD Extrude",
-		Size:         25.0,
-		Units:        UnitsMM,
-		Datum:        DatumCenter,
-		DXFFormat:    DXFFormatSpline,
+		Text:      "CAD Extrude",
+		Size:      25.0,
+		Units:     UnitsMM,
+		Datum:     DatumCenter,
+		DXFFormat: DXFFormatSpline,
 	}
 	resSpline, err := lf.LayoutText(paramsSpline)
 	if err != nil {

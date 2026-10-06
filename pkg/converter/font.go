@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"golang.org/x/image/font"
@@ -11,10 +12,10 @@ import (
 
 // LoadedFont wraps sfnt.Font with convenience methods.
 type LoadedFont struct {
-	SFNT        *sfnt.Font
-	UnitsPerEm  int
-	FontName    string
-	Buffer      sfnt.Buffer
+	SFNT       *sfnt.Font
+	UnitsPerEm int
+	FontName   string
+	Buffer     sfnt.Buffer
 }
 
 // ParseFont parses TTF or OTF font bytes into a LoadedFont.
@@ -247,7 +248,24 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		cursorY -= lineSpacing
 	}
 
-	// Apply Path Welding if requested and we have glyph groups
+	// 1. Apply Slant (§2.3) if requested
+	if math.Abs(params.SlantAngle) > 1e-4 {
+		allContours, allSegments = ApplySlant(allContours, allSegments, params.SlantAngle)
+		for i := range glyphGroups {
+			glyphGroups[i].Contours, _ = ApplySlant(glyphGroups[i].Contours, nil, params.SlantAngle)
+		}
+	}
+
+	// 2. Apply Arc Deformation (§2.1) if requested
+	if params.ArcEnabled {
+		allContours = ApplyArcDeformation(allContours, params.ArcRadius, params.ArcSweep, params.ArcAlign, params.ArcInward)
+		for i := range glyphGroups {
+			glyphGroups[i].Contours = ApplyArcDeformation(glyphGroups[i].Contours, params.ArcRadius, params.ArcSweep, params.ArcAlign, params.ArcInward)
+		}
+		allSegments = nil // sampled deformed contours take precedence
+	}
+
+	// 3. Apply Path Welding (§1.2) if requested and we have glyph groups
 	var classifiedPaths []ClassifiedContour
 	isWelded := false
 	if params.Weld && len(glyphGroups) > 0 {
@@ -262,6 +280,20 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 
 	if !isWelded && len(allContours) > 0 {
 		classifiedPaths = ClassifyAndOrientContours(allContours, 1e-4)
+	}
+
+	// 4. Apply Inset / Offset (§2.2) if requested
+	if math.Abs(params.Offset) > 1e-5 && len(classifiedPaths) > 0 {
+		join := params.CornerJoin
+		if join == "" {
+			join = JoinRound
+		}
+		offsetContours := OffsetProfile(classifiedPaths, params.Offset, join, 3.0)
+		if len(offsetContours) > 0 {
+			allContours = offsetContours
+			classifiedPaths = ClassifyAndOrientContours(allContours, 1e-4)
+			allSegments = nil
+		}
 	}
 
 	// Compute initial bounding box
@@ -365,4 +397,3 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		DXFFormat:       string(dxfFormat),
 	}, nil
 }
-

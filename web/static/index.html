@@ -224,7 +224,115 @@
           </div>
         </div>
 
-        <!-- 4. 3D CAD & CAM Setup -->
+        <!-- 4. Surface Shaping & Tolerances (Phase 2) -->
+        <div class="control-card">
+          <div class="card-header">
+            <h3>Surface Shaping & Offsets</h3>
+            <span class="badge-mini" id="shaping-mode-tag">Direct</span>
+          </div>
+          <div class="card-body">
+            <!-- Simulated Slant (Oblique) -->
+            <div class="param-slider-group">
+              <div class="param-label-row">
+                <label for="input-slant-range">Simulated Slant (Shear)</label>
+                <div class="param-val-input">
+                  <input type="number" id="input-slant-num" min="-45" max="45" step="1" value="0">
+                  <span class="unit-label">°</span>
+                </div>
+              </div>
+              <input type="range" id="input-slant-range" min="-45" max="45" step="1" value="0" class="styled-range">
+              <span class="form-hint">Affine shear transform for oblique styling without separate font files</span>
+            </div>
+
+            <!-- Tolerance Offset / Kerf -->
+            <div class="param-slider-group">
+              <div class="param-label-row">
+                <label for="input-offset-range">Tolerance Offset (Kerf / Inlay)</label>
+                <div class="param-val-input">
+                  <input type="number" id="input-offset-num" min="-5.0" max="5.0" step="0.05" value="0.00">
+                  <span class="unit-label">mm</span>
+                </div>
+              </div>
+              <input type="range" id="input-offset-range" min="-2.0" max="2.0" step="0.05" value="0.00" class="styled-range">
+              <span class="form-hint">+ expands outer profile / shrinks holes for press-fit CAM tolerance</span>
+            </div>
+
+            <!-- Corner Join Selection -->
+            <div class="form-group">
+              <label for="select-corner-join">Offset Corner Join</label>
+              <select id="select-corner-join" class="styled-select">
+                <option value="round" selected>Round (CNC Ballnose & Smooth CAD)</option>
+                <option value="miter">Miter (Sharp 90° Precision Corners)</option>
+                <option value="bevel">Bevel (Chamfered Joints)</option>
+              </select>
+            </div>
+
+            <!-- Text-on-a-Curve (Circular / Arc Text) -->
+            <div class="toggle-control-row">
+              <div class="toggle-text">
+                <label for="toggle-arc" class="toggle-label">Text-on-a-Curve (Arc)</label>
+                <span class="toggle-hint">Conformal arc mapping for cylindrical embossing & dial faces</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="toggle-arc">
+                <span class="slider round"></span>
+              </label>
+            </div>
+
+            <!-- Arc Options Sub-panel (collapsible) -->
+            <div class="sub-options-panel" id="arc-options-panel" style="display: none;">
+              <!-- Arc Radius -->
+              <div class="param-slider-group">
+                <div class="param-label-row">
+                  <label for="input-arc-radius-range">Arc Radius</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-arc-radius-num" min="5" max="500" step="1" value="60">
+                    <span class="unit-label">mm</span>
+                  </div>
+                </div>
+                <input type="range" id="input-arc-radius-range" min="15" max="250" step="1" value="60" class="styled-range">
+              </div>
+
+              <!-- Arc Sweep Angle -->
+              <div class="param-slider-group">
+                <div class="param-label-row">
+                  <label for="input-arc-sweep-range">Sweep Angle (0 = Auto)</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-arc-sweep-num" min="0" max="360" step="5" value="0">
+                    <span class="unit-label">°</span>
+                  </div>
+                </div>
+                <input type="range" id="input-arc-sweep-range" min="0" max="360" step="5" value="0" class="styled-range">
+                <span class="form-hint">0° preserves original glyph aspect ratio along circumference</span>
+              </div>
+
+              <!-- Arc Alignment -->
+              <div class="form-group">
+                <label>Arc Alignment</label>
+                <div class="pill-group" id="arc-align-pill-group">
+                  <button class="pill-btn active" data-align="center">Center</button>
+                  <button class="pill-btn" data-align="left">Left</button>
+                  <button class="pill-btn" data-align="right">Right</button>
+                </div>
+              </div>
+
+              <!-- Arc Inward/Outward Checkbox -->
+              <div class="toggle-control-row toggle-mini">
+                <div class="toggle-text">
+                  <label for="toggle-arc-inward" class="toggle-label">Orient Inward</label>
+                  <span class="toggle-hint">Text baseline faces inward toward circle center</span>
+                </div>
+                <label class="switch switch-mini">
+                  <input type="checkbox" id="toggle-arc-inward">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 5. 3D CAD & CAM Setup -->
         <div class="control-card">
           <div class="card-header">
             <h3>3D CAD & CAM Setup</h3>

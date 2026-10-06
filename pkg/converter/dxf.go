@@ -42,11 +42,17 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 	sb.WriteString("  0\nSECTION\n  2\nHEADER\n")
 	if format == DXFFormatSpline {
 		sb.WriteString("  9\n$ACADVER\n  1\nAC1015\n") // AutoCAD 2000
+		sb.WriteString("  9\n$HANDSEED\n  5\nFFFF\n")
 	} else {
 		sb.WriteString("  9\n$ACADVER\n  1\nAC1009\n") // AutoCAD Release 12
 	}
 	sb.WriteString(fmt.Sprintf("  9\n$INSUNITS\n 70\n%6d\n", insUnits))
 	sb.WriteString("  0\nENDSEC\n")
+
+	// Classes section (required in AC1015+)
+	if format == DXFFormatSpline {
+		sb.WriteString("  0\nSECTION\n  2\nCLASSES\n  0\nENDSEC\n")
+	}
 
 	// Tables section
 	sb.WriteString("  0\nSECTION\n  2\nTABLES\n")
@@ -61,6 +67,13 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 	sb.WriteString("  0\nLAYER\n  2\n0\n 70\n     0\n 62\n     7\n  6\nCONTINUOUS\n")
 	sb.WriteString(fmt.Sprintf("  0\nLAYER\n  2\n%s\n 70\n     0\n 62\n%6d\n  6\nCONTINUOUS\n", layerName, color))
 	sb.WriteString("  0\nENDTAB\n")
+
+	// Block Record table (required in AC1015)
+	if format == DXFFormatSpline {
+		sb.WriteString("  0\nTABLE\n  2\nBLOCK_RECORD\n 70\n     1\n")
+		sb.WriteString("  0\nBLOCK_RECORD\n  2\n*MODEL_SPACE\n")
+		sb.WriteString("  0\nENDTAB\n")
+	}
 
 	sb.WriteString("  0\nENDSEC\n")
 
@@ -88,6 +101,12 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 	}
 
 	sb.WriteString("  0\nENDSEC\n")
+
+	// Objects section (required in AC1015+)
+	if format == DXFFormatSpline {
+		sb.WriteString("  0\nSECTION\n  2\nOBJECTS\n  0\nENDSEC\n")
+	}
+
 	sb.WriteString("  0\nEOF\n")
 
 	return sb.String()

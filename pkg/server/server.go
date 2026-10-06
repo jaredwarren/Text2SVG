@@ -25,17 +25,25 @@ func NewServer(fm *fonts.Manager, fs http.FileSystem) *Server {
 
 // ConvertRequest defines the incoming payload for preview and export.
 type ConvertRequest struct {
-	Text         string              `json:"text"`
-	FontID       string              `json:"font_id"`
-	Size         float64             `json:"size"`
-	Units        converter.Units     `json:"units"`
-	Kerning      float64             `json:"kerning"`
-	LineHeight   float64             `json:"line_height"`
-	Datum        converter.Datum     `json:"datum"`
-	CurveSamples int                 `json:"curve_samples"`
-	LayerName    string              `json:"layer_name"`
-	Weld         bool                `json:"weld"`
-	DXFFormat    converter.DXFFormat `json:"dxf_format"`
+	Text         string                 `json:"text"`
+	FontID       string                 `json:"font_id"`
+	Size         float64                `json:"size"`
+	Units        converter.Units        `json:"units"`
+	Kerning      float64                `json:"kerning"`
+	LineHeight   float64                `json:"line_height"`
+	Datum        converter.Datum        `json:"datum"`
+	CurveSamples int                    `json:"curve_samples"`
+	LayerName    string                 `json:"layer_name"`
+	Weld         bool                   `json:"weld"`
+	DXFFormat    converter.DXFFormat    `json:"dxf_format"`
+	SlantAngle   float64                `json:"slant_angle"`
+	Offset       float64                `json:"offset"`
+	CornerJoin   converter.CornerJoin   `json:"corner_join"`
+	ArcEnabled   bool                   `json:"arc_enabled"`
+	ArcRadius    float64                `json:"arc_radius"`
+	ArcSweep     float64                `json:"arc_sweep"`
+	ArcAlign     converter.ArcAlignment `json:"arc_align"`
+	ArcInward    bool                   `json:"arc_inward"`
 }
 
 // ConvertResponse is the response returned to the Web UI.
@@ -138,6 +146,15 @@ func (s *Server) parseRequest(r *http.Request) (*ConvertRequest, *converter.Load
 	if req.DXFFormat == "" {
 		req.DXFFormat = converter.DXFFormatSpline
 	}
+	if req.CornerJoin == "" {
+		req.CornerJoin = converter.JoinRound
+	}
+	if req.ArcRadius <= 0 {
+		req.ArcRadius = 50.0
+	}
+	if req.ArcAlign == "" {
+		req.ArcAlign = converter.ArcAlignCenter
+	}
 
 	loadedFont, err := s.fontManager.GetFont(req.FontID)
 	if err != nil {
@@ -165,6 +182,14 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		LayerName:    req.LayerName,
 		Weld:         req.Weld,
 		DXFFormat:    req.DXFFormat,
+		SlantAngle:   req.SlantAngle,
+		Offset:       req.Offset,
+		CornerJoin:   req.CornerJoin,
+		ArcEnabled:   req.ArcEnabled,
+		ArcRadius:    req.ArcRadius,
+		ArcSweep:     req.ArcSweep,
+		ArcAlign:     req.ArcAlign,
+		ArcInward:    req.ArcInward,
 	})
 	if err != nil {
 		http.Error(w, "Failed to render text: "+err.Error(), http.StatusInternalServerError)
@@ -182,8 +207,25 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	if req.DXFFormat == converter.DXFFormatPolyline {
 		dxfFormatFlag = " --dxf-format polyline"
 	}
-	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s --format dxf --out export.dxf",
-		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag)
+	slantFlag := ""
+	if req.SlantAngle != 0 {
+		slantFlag = fmt.Sprintf(" --slant %.1f", req.SlantAngle)
+	}
+	offsetFlag := ""
+	if req.Offset != 0 {
+		offsetFlag = fmt.Sprintf(" --offset %.2f --corner-join %s", req.Offset, req.CornerJoin)
+	}
+	arcFlag := ""
+	if req.ArcEnabled {
+		inwardStr := ""
+		if req.ArcInward {
+			inwardStr = " --arc-inward"
+		}
+		arcFlag = fmt.Sprintf(" --arc --arc-radius %.1f --arc-sweep %.1f --arc-align %s%s", req.ArcRadius, req.ArcSweep, req.ArcAlign, inwardStr)
+	}
+
+	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s%s%s%s --format dxf --out export.dxf",
+		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag, slantFlag, offsetFlag, arcFlag)
 
 	resp := ConvertResponse{
 		SVG:        result.SVG,
@@ -220,6 +262,14 @@ func (s *Server) handleExportDXF(w http.ResponseWriter, r *http.Request) {
 		LayerName:    req.LayerName,
 		Weld:         req.Weld,
 		DXFFormat:    req.DXFFormat,
+		SlantAngle:   req.SlantAngle,
+		Offset:       req.Offset,
+		CornerJoin:   req.CornerJoin,
+		ArcEnabled:   req.ArcEnabled,
+		ArcRadius:    req.ArcRadius,
+		ArcSweep:     req.ArcSweep,
+		ArcAlign:     req.ArcAlign,
+		ArcInward:    req.ArcInward,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate DXF: "+err.Error(), http.StatusInternalServerError)
@@ -250,6 +300,14 @@ func (s *Server) handleExportSVG(w http.ResponseWriter, r *http.Request) {
 		LayerName:    req.LayerName,
 		Weld:         req.Weld,
 		DXFFormat:    req.DXFFormat,
+		SlantAngle:   req.SlantAngle,
+		Offset:       req.Offset,
+		CornerJoin:   req.CornerJoin,
+		ArcEnabled:   req.ArcEnabled,
+		ArcRadius:    req.ArcRadius,
+		ArcSweep:     req.ArcSweep,
+		ArcAlign:     req.ArcAlign,
+		ArcInward:    req.ArcInward,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate SVG: "+err.Error(), http.StatusInternalServerError)

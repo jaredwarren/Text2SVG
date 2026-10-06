@@ -50,6 +50,24 @@ const (
 	DXFFormatPolyline DXFFormat = "polyline" // Closed POLYLINE / LWPOLYLINE entities
 )
 
+// CornerJoin specifies how corners are shaped during contour offsetting.
+type CornerJoin string
+
+const (
+	JoinRound CornerJoin = "round"
+	JoinMiter CornerJoin = "miter"
+	JoinBevel CornerJoin = "bevel"
+)
+
+// ArcAlignment defines alignment along a circular arc.
+type ArcAlignment string
+
+const (
+	ArcAlignLeft   ArcAlignment = "left"
+	ArcAlignCenter ArcAlignment = "center"
+	ArcAlignRight  ArcAlignment = "right"
+)
+
 // TextParams defines all parameters for text shaping and vector export.
 type TextParams struct {
 	Text         string    `json:"text"`
@@ -62,6 +80,16 @@ type TextParams struct {
 	LayerName    string    `json:"layer_name"`    // DXF layer (e.g. "CUT", "ENGRAVE")
 	Weld         bool      `json:"weld"`          // Path welding: boolean union for overlapping letters
 	DXFFormat    DXFFormat `json:"dxf_format"`    // "spline" (AutoCAD 2000 SPLINE) or "polyline"
+
+	// Phase 2: 3D Surfaces & Tolerances
+	SlantAngle float64      `json:"slant_angle"` // Shear slant angle in degrees (-45° to +45°)
+	Offset     float64      `json:"offset"`      // Inset/Offset in chosen units (+ expands, - contracts)
+	CornerJoin CornerJoin   `json:"corner_join"` // "round", "miter", "bevel"
+	ArcEnabled bool         `json:"arc_enabled"` // Deform text along circular arc
+	ArcRadius  float64      `json:"arc_radius"`  // Radius of arc in chosen units
+	ArcSweep   float64      `json:"arc_sweep"`   // Sweep angle in degrees (-360° to +360°)
+	ArcAlign   ArcAlignment `json:"arc_align"`   // "center", "left", "right"
+	ArcInward  bool         `json:"arc_inward"`  // Point letters toward center of curvature
 }
 
 // Contour represents a continuous path loop (sequence of points).
@@ -105,4 +133,3 @@ type RenderResult struct {
 	Welded          bool                `json:"welded"`
 	DXFFormat       string              `json:"dxf_format"`
 }
-

@@ -51,28 +51,33 @@ Targeted at ensuring imported sketch profiles extrude flawlessly in Fusion 360, 
 
 ---
 
-## Phase 2: Text Shaping for 3D Surfaces & Embossing
+## Phase 2: Text Shaping for 3D Surfaces & Embossing (Completed)
 
-Targeted at dials, bezels, cylindrical bosses, and custom 3D printed lettering.
+Targeted at dials, bezels, cylindrical bosses, press-fit inlays, and custom 3D printed lettering.
 
-### 2.1 Text-on-a-Curve (Arch & Circular Text)
+### 2.1 Text-on-a-Curve (Arch & Circular Text) - [x] Completed
 - **Problem**: 3D parts frequently require curved typography (e.g. watch bezels, rotary dials, round knob labels, circular coin/token engravings).
-- **Solution**: Deform glyph coordinates along an arc defined by radius and sweep angle.
-- **Controls**:
-  - Toggle: `[x] Curve / Arc Text`
-  - Sliders: `Radius` (mm/in), `Sweep Angle` (-360° to +360°), `Alignment` (Center, Left, Right).
-  - Inward vs Outward orientation (letters pointing toward or away from the center of curvature).
+- **Solution**: Implemented conformal arc mapping that dynamically bends contours along an arc defined by radius and sweep angle. Includes automatic contour segment subdivision (`SubdivideContour`) so straight glyph stems bend smoothly without facet distortion.
+- **Features**:
+  - Arc deformation along circumference with baseline preserving curvature.
+  - Alignment options: `center`, `left`, `right`.
+  - Inward vs Outward orientation (letters oriented toward or away from the center of curvature).
+  - CLI flags: `--arc`, `--arc-radius`, `--arc-sweep`, `--arc-align`, `--arc-inward`.
 
-### 2.2 Inset / Offset Profiles (Draft & Tolerance Compensation)
+### 2.2 Inset / Offset Profiles (Draft & Tolerance Compensation) - [x] Completed
 - **Problem**: 3D printed inlays, push-fit text, and mold draft angles require letters to be slightly expanded or contracted.
-- **Solution**: Inward and outward curve offsetting.
-- **Controls**:
-  - `Contour Offset`: Offset distance in mm (e.g. -0.2mm for tight press-fit inlays, +0.5mm for raised border backplates).
-  - Choice of corner joins: Round (for CNC ball/end mills) or Sharp/Miter (for sharp 3D prints).
+- **Solution**: Implemented parallel edge offsetting with line-line intersection solving and convex corner joins (`round`, `miter`, `bevel`).
+- **Features**:
+  - Physical tolerance logic: positive offset expands solid boundaries and contracts inner holes, matching CAM kerf compensation and press-fit assembly.
+  - Corner join styles: `round` (CNC ballnose / smooth curves), `miter` (sharp 90° corners), `bevel` (chamfered joins).
+  - CLI flags: `--offset`, `--corner-join`.
 
-### 2.3 Simulated Slant (Oblique) & Baseline Offsets
+### 2.3 Simulated Slant (Oblique) & Baseline Offsets - [x] Completed
 - **Problem**: Many fonts lack a true italic version, or technical CAD text requires a specific 15° or 75° drafting slant angle.
-- **Solution**: Shear matrix transform slider (`Slant Angle`: -45° to +45°) to create italicized sketches from any standard font.
+- **Solution**: Implemented affine shear matrix transform along baseline $y=0$ ($x' = x + y\tan\theta$, $y'=y$) transforming contour vertices and Bézier control points.
+- **Features**:
+  - Full angle range: -45° to +45°.
+  - CLI flag: `--slant`.
 
 ---
 

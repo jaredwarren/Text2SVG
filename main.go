@@ -26,10 +26,22 @@ func main() {
 	leadingFlag := flag.Float64("leading", 1.2, "Line height multiplier for multi-line text (default 1.2)")
 	datumFlag := flag.String("datum", "bottom-left", "Origin datum point: bottom-left, center, top-left")
 	unitsFlag := flag.String("units", "mm", "Physical units: mm, in, px")
+	// DXF / CAM Flags
 	formatFlag := flag.String("format", "dxf", "Export format: dxf, svg")
 	dxfFormatFlag := flag.String("dxf-format", "spline", "DXF entity format: spline (AutoCAD 2000 AC1015 cubic SPLINE), polyline (R12/2000 LWPOLYLINE)")
 	weldFlag := flag.Bool("weld", false, "Weld overlapping letters into manifold profile (boolean union)")
 	outFlag := flag.String("out", "", "Output destination filepath (e.g. output.dxf)")
+
+	// Phase 2: Surface Shaping & Tolerances Flags
+	slantFlag := flag.Float64("slant", 0.0, "Simulated slant/oblique angle in degrees (-45.0 to 45.0)")
+	offsetFlag := flag.Float64("offset", 0.0, "Kerf / tolerance offset in units (positive expands solid / contracts holes)")
+	cornerJoinFlag := flag.String("corner-join", "round", "Corner join style for offset: round, miter, bevel")
+	arcFlag := flag.Bool("arc", false, "Enable circular / arc text-on-a-curve shaping")
+	arcRadiusFlag := flag.Float64("arc-radius", 50.0, "Arc radius in units (default 50.0)")
+	arcSweepFlag := flag.Float64("arc-sweep", 0.0, "Arc sweep angle in degrees (0 = auto-compute from text width)")
+	arcAlignFlag := flag.String("arc-align", "center", "Arc alignment: center, left, right")
+	arcInwardFlag := flag.Bool("arc-inward", false, "Orient text inward toward arc center")
+
 	portFlag := flag.Int("port", 8080, "Port for web studio server")
 	noBrowserFlag := flag.Bool("no-browser", false, "Do not automatically launch web browser")
 
@@ -40,7 +52,7 @@ func main() {
 
 	// 1. Headless CLI Mode
 	if *textFlag != "" {
-		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *outFlag)
+		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *slantFlag, *offsetFlag, *cornerJoinFlag, *arcFlag, *arcRadiusFlag, *arcSweepFlag, *arcAlignFlag, *arcInwardFlag, *outFlag)
 		return
 	}
 
@@ -48,7 +60,7 @@ func main() {
 	runServer(fontMgr, *portFlag, !*noBrowserFlag)
 }
 
-func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, outPath string) {
+func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, slant, offset float64, cornerJoin string, arc bool, arcRadius, arcSweep float64, arcAlign string, arcInward bool, outPath string) {
 	// Try loading font from path if it's a file, otherwise lookup in manager
 	var lf *converter.LoadedFont
 	if data, err := os.ReadFile(fontPath); err == nil {
@@ -78,6 +90,14 @@ func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leadin
 		LayerName:    "CUT",
 		Weld:         weld,
 		DXFFormat:    converter.DXFFormat(dxfFormatStr),
+		SlantAngle:   slant,
+		Offset:       offset,
+		CornerJoin:   converter.CornerJoin(cornerJoin),
+		ArcEnabled:   arc,
+		ArcRadius:    arcRadius,
+		ArcSweep:     arcSweep,
+		ArcAlign:     converter.ArcAlignment(arcAlign),
+		ArcInward:    arcInward,
 	}
 
 	result, err := lf.LayoutText(params)
