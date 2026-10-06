@@ -28,9 +28,11 @@ func (b BoundingBox) Height() float64 {
 type Datum string
 
 const (
-	DatumBottomLeft Datum = "bottom-left"
-	DatumCenter     Datum = "center"
-	DatumTopLeft    Datum = "top-left"
+	DatumBottomLeft     Datum = "bottom-left"
+	DatumCenter         Datum = "center"
+	DatumTopLeft        Datum = "top-left"
+	DatumBaselineLeft   Datum = "baseline-left"
+	DatumBaselineCenter Datum = "baseline-center"
 )
 
 // Units defines the physical measurement unit.
@@ -75,7 +77,7 @@ type TextParams struct {
 	Units        Units     `json:"units"`         // mm, in, px (default mm)
 	Kerning      float64   `json:"kerning"`       // Extra tracking/letter-spacing in chosen units
 	LineHeight   float64   `json:"line_height"`   // Multiplier (e.g. 1.2)
-	Datum        Datum     `json:"datum"`         // bottom-left, center, top-left
+	Datum        Datum     `json:"datum"`         // bottom-left, center, top-left, baseline-left, baseline-center
 	CurveSamples int       `json:"curve_samples"` // Segments per curve in DXF (default 16)
 	LayerName    string    `json:"layer_name"`    // DXF layer (e.g. "CUT", "ENGRAVE")
 	Weld         bool      `json:"weld"`          // Path welding: boolean union for overlapping letters
@@ -90,6 +92,9 @@ type TextParams struct {
 	ArcSweep   float64      `json:"arc_sweep"`   // Sweep angle in degrees (-360° to +360°)
 	ArcAlign   ArcAlignment `json:"arc_align"`   // "center", "left", "right"
 	ArcInward  bool         `json:"arc_inward"`  // Point letters toward center of curvature
+
+	// Phase 3: Alignment & CAD Helpers
+	ConstructionBox bool `json:"construction_box"` // Export reference bounding box wireframe
 }
 
 // Contour represents a continuous path loop (sequence of points).

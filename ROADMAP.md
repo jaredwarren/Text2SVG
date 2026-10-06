@@ -81,37 +81,57 @@ Targeted at dials, bezels, cylindrical bosses, press-fit inlays, and custom 3D p
 
 ---
 
-## Phase 3: Multi-CAD Export Formats & Alignment Helpers
+## Phase 3: Multi-CAD Export Formats & Alignment Helpers (Completed)
 
 Optimizing interoperability and placement within CAD workspaces.
 
-### 3.1 CAD-Optimized SVG (for Fusion 360 & FreeCAD)
+### 3.1 CAD-Optimized SVG (for Fusion 360 & FreeCAD) - [x] Completed
 - **Features**:
-  - Fusion 360 has a direct "Insert > Insert SVG" sketch feature.
-  - Generate cubic Bézier `<path>` SVG with explicit physical millimeter scaling that imports directly to scale on any selected CAD construction plane.
-  - Zero transform matrices (bake all translations and scales into raw coordinates so CAD import doesn't misplace origins).
+  - Direct 1:1 physical scale millimeter/inch sketch import without manual scaling or unit conversion prompts.
+  - Generates cubic Bézier `<path>` SVG (`M... C... Z`) with zero matrix transforms (all offsets and scales are baked directly into geometric coordinates).
+  - Explicit `fill-rule="evenodd"` XML attribute and CSS stylesheet ensuring inner counters (e.g., 'O', 'A', 'B', '8', '0') are auto-recognized as cutouts in CAD extrusion profiles.
 
-### 3.2 Precision Origin & Datum Alignment for CAD Mating
+### 3.2 Precision Origin & Datum Alignment for CAD Mating - [x] Completed
 - **Problem**: Placing extruded text on a CAD part requires snapping to reference axes (center of boss, center of bounding box, or typographical baseline).
 - **Solution**: Enhanced Origin / Datum options:
-  - **Center of Bounding Box** (for centering on round knobs / faces)
-  - **Typographical Baseline-Center** (for aligning with mechanical construction lines)
-  - **Bottom-Left (0,0)** (standard Cartesian datum)
-  - Export reference bounding box wireframe (optional bounding rectangle on a `CONSTRUCTION` layer).
+  - **Bottom-Left (0,0)**: Standard Cartesian/CNC machining datum.
+  - **Center (0,0)**: Symmetric origin for centering on circular dials, knobs, and faces.
+  - **Top-Left (0,0)**: Graphic design and desktop publishing convention.
+  - **Baseline-Left (0,0)**: Mathematical baseline datum ($y=0$) aligned with the left bounding box limit ($x=0$) for technical drawing alignment.
+  - **Baseline-Center (0,0)**: Mathematical baseline datum ($y=0$) centered horizontally ($x=0$) along the text line.
+  - **Construction Box Wireframe**: Optional bounding envelope wireframe exported on layer `CONSTRUCTION` (ACI 8 / gray in DXF) and `<rect class="construction-frame">` with dashed stroke in SVG (`--construction-box` CLI flag & Studio toggle).
 
-### 3.3 3D Extrusion Web Preview (Lightweight WebGL)
+### 3.3 3D Extrusion Web Preview (Lightweight WebGL) - [x] Completed
 - **Problem**: Hard to visualize how the text will look when extruded into 3D.
-- **Solution**: A simple 3D toggle in the web studio using Three.js/WebGL to view the text with an interactive 3D extrusion slider (`Extrude Height: 5mm`, `Bevel: 0.5mm`).
+- **Solution**: Interactive WebGL 3D solid viewer built directly into Web Studio using pure vendored Three.js, OrbitControls, and SVGLoader:
+  - 3D Viewport toggle (`Wireframe` | `Fill` | `3D Solid`) with 360° orbit, pan, and zoom controls.
+  - Real-time Extrusion Depth slider (0.5 mm to 100 mm).
+  - Real-time Bevel / Chamfer slider (0.0 mm to 5.0 mm).
+  - PBR Material finishes: Brushed Aluminum, Red Anodized Aluminum, Polished Brass / Gold, Matte Black Acrylic, Natural Delrin / White POM.
+  - Engineering millimeter ground bed with coordinate lighting.
+
+### 3.4 DXF Health Inspector & CAD Compatibility Linter - [x] Completed
+- **Problem**: When a DXF fails to import into Onshape, Fusion 360, SolidWorks, or LightBurn, CAD software provides generic, unhelpful errors ("Translation failed", "Invalid database").
+- **Solution**: A built-in pure Go DXF tokenizer, AST analyzer, and compatibility validator solving DXF import issues:
+  - **CLI Command & Flag**: `text2svg --inspect <file.dxf>` and `text2svg inspect <file.dxf>`.
+  - **REST API Endpoint**: `POST /api/inspect-dxf` accepting raw binary or multipart form file.
+  - **Studio Diagnostic Modal**: 1-click inspection of current in-memory designs or drag-and-drop of any external third-party `.dxf` file.
+  - **Schema Architecture Verification**: Audits AutoCAD R12 (`AC1009`) and AutoCAD 2000 (`AC1015`) section completeness (`HEADER`, `CLASSES`, `TABLES`, `BLOCKS`, `ENTITIES`, `OBJECTS`, and `$HANDSEED`).
+  - **Loop Closure & Geometry Stats**: Detects watertight closed loops vs open curves, entity counts, dimensions, and extents.
+  - **Target CAD Compatibility Matrix**: Diagnostic reporting for PTC Onshape, Autodesk Fusion 360, AutoCAD, FreeCAD, and Laser Cutters / LightBurn.
 
 ---
 
 ## Prioritized Implementation Roadmap
 
-| Priority | Feature | Complexity | CAD Impact | Primary Benefit |
-| :---: | :--- | :---: | :---: | :--- |
-| **1** | **Path Welding (Boolean Union)** | Medium | **Critical** | Eliminates self-intersecting curve errors on cursive/tight text |
-| **2** | **True DXF Splines (`SPLINE`)** | Medium | **High** | Replaces faceted polylines with true smooth CAD curves & fillets |
-| **3** | **Text-on-a-Curve (Circular / Arc)** | Medium | **High** | Enables dials, round bezels, circular embossed parts |
-| **4** | **Manifold Loop & Hole Orientation** | Low | **High** | Instant automatic profile recognition in CAD extrude |
-| **5** | **Contour Offset (Inlays / Tolerances)**| Medium | **Medium** | Perfect tolerances for 3D printed two-color inlays |
-| **6** | **3D WebGL Extrude Preview** | Low-Med | **Medium** | Visualizes 3D look before exporting to CAD |
+| Priority | Feature | Phase | Complexity | CAD Impact | Primary Benefit |
+| :---: | :--- | :---: | :---: | :---: | :--- |
+| **1** | **Path Welding (Boolean Union)** | Phase 1 | Medium | **Critical** | [x] Eliminates self-intersecting curve errors on cursive/tight text |
+| **2** | **True DXF Splines (`SPLINE`)** | Phase 1 | Medium | **High** | [x] Replaces faceted polylines with true smooth CAD curves & fillets |
+| **3** | **Manifold Loop & Hole Orientation** | Phase 1 | Low | **High** | [x] Instant automatic profile recognition in CAD extrude |
+| **4** | **Text-on-a-Curve (Circular / Arc)** | Phase 2 | Medium | **High** | [x] Enables dials, round bezels, circular embossed parts |
+| **5** | **Contour Offset (Inlays / Tolerances)**| Phase 2 | Medium | **High** | [x] Perfect tolerances for 3D printed two-color inlays & kerf |
+| **6** | **Simulated Slant (Oblique)** | Phase 2 | Low | **Medium** | [x] Drafting slants and simulated italics for any font |
+| **7** | **CAD-Optimized SVG (Fusion/FreeCAD)** | Phase 3 | Low | **High** | [x] Direct 1:1 scale millimeter sketch import |
+| **8** | **DXF Health Inspector & Linter** | Phase 3 | Low-Med | **High** | [x] Instant diagnosis of DXF import failures in Onshape/Fusion |
+| **9** | **3D WebGL Extrude Preview** | Phase 3 | Low-Med | **Medium** | [x] Visualizes 3D look before exporting to CAD |

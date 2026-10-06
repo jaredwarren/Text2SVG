@@ -104,4 +104,14 @@ func TestServerPreviewAndExportPhase2(t *testing.T) {
 	if recSVG.Body.Len() == 0 {
 		t.Errorf("expected SVG content")
 	}
+
+	// 5. Test Inspect DXF endpoint with the DXF generated in step 3
+	reqInspect := httptest.NewRequest("POST", "/api/inspect-dxf", bytes.NewReader(recDXF.Body.Bytes()))
+	reqInspect.Header.Set("Content-Type", "application/dxf")
+	recInspect := httptest.NewRecorder()
+	handler.ServeHTTP(recInspect, reqInspect)
+
+	if recInspect.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /api/inspect-dxf, got %d: %s", recInspect.Code, recInspect.Body.String())
+	}
 }

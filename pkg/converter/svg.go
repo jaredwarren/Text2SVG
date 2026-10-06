@@ -5,8 +5,9 @@ import (
 	"strings"
 )
 
-// GenerateSVG produces a clean vector SVG string with physical dimensions and viewBox.
-func GenerateSVG(contours []Contour, segments []PathSegment, bounds BoundingBox, units Units) string {
+// GenerateSVG produces a clean, CAD-optimized vector SVG string with physical dimensions,
+// evenodd fill rules for inner counters, and optional reference construction frames.
+func GenerateSVG(contours []Contour, segments []PathSegment, bounds BoundingBox, units Units, constructionBox bool) string {
 	width := bounds.Width()
 	height := bounds.Height()
 
@@ -79,11 +80,15 @@ func GenerateSVG(contours []Contour, segments []PathSegment, bounds BoundingBox,
 		width, height, width, unitSuffix, height, unitSuffix))
 	sb.WriteString("  <defs>\n")
 	sb.WriteString("    <style>\n")
-	sb.WriteString("      .cut-path { fill: none; stroke: #e02424; stroke-width: 0.35; stroke-linecap: round; stroke-linejoin: round; }\n")
-	sb.WriteString("      .fill-path { fill: #f3f4f6; stroke: none; fill-rule: nonzero; }\n")
+	sb.WriteString("      .cut-path { fill: none; stroke: #e02424; stroke-width: 0.35; stroke-linecap: round; stroke-linejoin: round; fill-rule: evenodd; }\n")
+	sb.WriteString("      .fill-path { fill: #f3f4f6; stroke: none; fill-rule: evenodd; }\n")
+	sb.WriteString("      .construction-frame { fill: none; stroke: #6b7280; stroke-width: 0.25; stroke-dasharray: 2,2; opacity: 0.75; }\n")
 	sb.WriteString("    </style>\n")
 	sb.WriteString("  </defs>\n")
-	sb.WriteString(fmt.Sprintf(`  <path class="cut-path" d="%s" />`+"\n", strings.TrimSpace(pathD.String())))
+	sb.WriteString(fmt.Sprintf(`  <path class="cut-path" fill-rule="evenodd" d="%s" />`+"\n", strings.TrimSpace(pathD.String())))
+	if constructionBox {
+		sb.WriteString(fmt.Sprintf(`  <rect class="construction-frame" x="0.0" y="0.0" width="%.3f" height="%.3f" />`+"\n", width, height))
+	}
 	sb.WriteString("</svg>")
 
 	return sb.String()

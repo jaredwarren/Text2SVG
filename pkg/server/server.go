@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jaredwarren/Text2SVG/pkg/converter"
+	"github.com/jaredwarren/Text2SVG/pkg/dxf"
 	"github.com/jaredwarren/Text2SVG/pkg/fonts"
 )
 
@@ -41,9 +42,10 @@ type ConvertRequest struct {
 	CornerJoin   converter.CornerJoin   `json:"corner_join"`
 	ArcEnabled   bool                   `json:"arc_enabled"`
 	ArcRadius    float64                `json:"arc_radius"`
-	ArcSweep     float64                `json:"arc_sweep"`
-	ArcAlign     converter.ArcAlignment `json:"arc_align"`
-	ArcInward    bool                   `json:"arc_inward"`
+	ArcSweep        float64                `json:"arc_sweep"`
+	ArcAlign        converter.ArcAlignment `json:"arc_align"`
+	ArcInward       bool                   `json:"arc_inward"`
+	ConstructionBox bool                   `json:"construction_box"`
 }
 
 // ConvertResponse is the response returned to the Web UI.
@@ -68,6 +70,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/preview", s.handlePreview)
 	mux.HandleFunc("POST /api/export/dxf", s.handleExportDXF)
 	mux.HandleFunc("POST /api/export/svg", s.handleExportSVG)
+	mux.HandleFunc("POST /api/inspect-dxf", s.handleInspectDXF)
 
 	// Static asset handler
 	fileServer := http.FileServer(s.fs)
@@ -187,9 +190,10 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		CornerJoin:   req.CornerJoin,
 		ArcEnabled:   req.ArcEnabled,
 		ArcRadius:    req.ArcRadius,
-		ArcSweep:     req.ArcSweep,
-		ArcAlign:     req.ArcAlign,
-		ArcInward:    req.ArcInward,
+		ArcSweep:        req.ArcSweep,
+		ArcAlign:        req.ArcAlign,
+		ArcInward:       req.ArcInward,
+		ConstructionBox: req.ConstructionBox,
 	})
 	if err != nil {
 		http.Error(w, "Failed to render text: "+err.Error(), http.StatusInternalServerError)
@@ -223,9 +227,13 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		}
 		arcFlag = fmt.Sprintf(" --arc --arc-radius %.1f --arc-sweep %.1f --arc-align %s%s", req.ArcRadius, req.ArcSweep, req.ArcAlign, inwardStr)
 	}
+	boxFlag := ""
+	if req.ConstructionBox {
+		boxFlag = " --construction-box"
+	}
 
-	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s%s%s%s --format dxf --out export.dxf",
-		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag, slantFlag, offsetFlag, arcFlag)
+	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s%s%s%s%s --format dxf --out export.dxf",
+		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag, slantFlag, offsetFlag, arcFlag, boxFlag)
 
 	resp := ConvertResponse{
 		SVG:        result.SVG,
@@ -252,24 +260,25 @@ func (s *Server) handleExportDXF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := font.LayoutText(converter.TextParams{
-		Text:         req.Text,
-		Size:         req.Size,
-		Units:        req.Units,
-		Kerning:      req.Kerning,
-		LineHeight:   req.LineHeight,
-		Datum:        req.Datum,
-		CurveSamples: req.CurveSamples,
-		LayerName:    req.LayerName,
-		Weld:         req.Weld,
-		DXFFormat:    req.DXFFormat,
-		SlantAngle:   req.SlantAngle,
-		Offset:       req.Offset,
-		CornerJoin:   req.CornerJoin,
-		ArcEnabled:   req.ArcEnabled,
-		ArcRadius:    req.ArcRadius,
-		ArcSweep:     req.ArcSweep,
-		ArcAlign:     req.ArcAlign,
-		ArcInward:    req.ArcInward,
+		Text:            req.Text,
+		Size:            req.Size,
+		Units:           req.Units,
+		Kerning:         req.Kerning,
+		LineHeight:      req.LineHeight,
+		Datum:           req.Datum,
+		CurveSamples:    req.CurveSamples,
+		LayerName:       req.LayerName,
+		Weld:            req.Weld,
+		DXFFormat:       req.DXFFormat,
+		SlantAngle:      req.SlantAngle,
+		Offset:          req.Offset,
+		CornerJoin:      req.CornerJoin,
+		ArcEnabled:      req.ArcEnabled,
+		ArcRadius:       req.ArcRadius,
+		ArcSweep:        req.ArcSweep,
+		ArcAlign:        req.ArcAlign,
+		ArcInward:       req.ArcInward,
+		ConstructionBox: req.ConstructionBox,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate DXF: "+err.Error(), http.StatusInternalServerError)
@@ -290,24 +299,25 @@ func (s *Server) handleExportSVG(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := font.LayoutText(converter.TextParams{
-		Text:         req.Text,
-		Size:         req.Size,
-		Units:        req.Units,
-		Kerning:      req.Kerning,
-		LineHeight:   req.LineHeight,
-		Datum:        req.Datum,
-		CurveSamples: req.CurveSamples,
-		LayerName:    req.LayerName,
-		Weld:         req.Weld,
-		DXFFormat:    req.DXFFormat,
-		SlantAngle:   req.SlantAngle,
-		Offset:       req.Offset,
-		CornerJoin:   req.CornerJoin,
-		ArcEnabled:   req.ArcEnabled,
-		ArcRadius:    req.ArcRadius,
-		ArcSweep:     req.ArcSweep,
-		ArcAlign:     req.ArcAlign,
-		ArcInward:    req.ArcInward,
+		Text:            req.Text,
+		Size:            req.Size,
+		Units:           req.Units,
+		Kerning:         req.Kerning,
+		LineHeight:      req.LineHeight,
+		Datum:           req.Datum,
+		CurveSamples:    req.CurveSamples,
+		LayerName:       req.LayerName,
+		Weld:            req.Weld,
+		DXFFormat:       req.DXFFormat,
+		SlantAngle:      req.SlantAngle,
+		Offset:          req.Offset,
+		CornerJoin:      req.CornerJoin,
+		ArcEnabled:      req.ArcEnabled,
+		ArcRadius:       req.ArcRadius,
+		ArcSweep:        req.ArcSweep,
+		ArcAlign:        req.ArcAlign,
+		ArcInward:       req.ArcInward,
+		ConstructionBox: req.ConstructionBox,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate SVG: "+err.Error(), http.StatusInternalServerError)
@@ -318,4 +328,36 @@ func (s *Server) handleExportSVG(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Write([]byte(result.SVG))
+}
+
+func (s *Server) handleInspectDXF(w http.ResponseWriter, r *http.Request) {
+	var reader io.Reader
+	filename := "uploaded.dxf"
+
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		if err := r.ParseMultipartForm(16 << 20); err != nil {
+			http.Error(w, "Failed to parse form: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, "Missing file in form field 'file'", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		filename = header.Filename
+		reader = file
+	} else {
+		reader = r.Body
+	}
+
+	rep, err := dxf.InspectReader(reader)
+	if err != nil {
+		http.Error(w, "Failed to inspect DXF: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	rep.Filename = filename
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rep)
 }

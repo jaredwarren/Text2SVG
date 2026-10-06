@@ -343,6 +343,12 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 	case DatumTopLeft:
 		offsetX = -minX
 		offsetY = -maxY
+	case DatumBaselineLeft:
+		offsetX = -minX
+		offsetY = 0.0
+	case DatumBaselineCenter:
+		offsetX = -(minX + maxX) / 2.0
+		offsetY = 0.0
 	default:
 		offsetX = -minX
 		offsetY = -minY
@@ -382,8 +388,8 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		dxfFormat = DXFFormatSpline
 	}
 
-	dxfStr := GenerateDXF(allContours, allSegments, dxfFormat, params.LayerName, params.Units)
-	svgStr := GenerateSVG(allContours, allSegments, bounds, params.Units)
+	dxfStr := GenerateDXF(allContours, allSegments, dxfFormat, params.LayerName, params.Units, params.ConstructionBox, bounds)
+	svgStr := GenerateSVG(allContours, allSegments, bounds, params.Units, params.ConstructionBox)
 
 	return &RenderResult{
 		Contours:        allContours,

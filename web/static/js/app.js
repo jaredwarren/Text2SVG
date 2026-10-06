@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     units: "mm",
     kerning: 0.0,
     line_height: 1.20,
-    datum: "bottom-left",
+    datum: "bottom-left", // "bottom-left" | "center" | "top-left" | "baseline-left" | "baseline-center"
     layer_name: "CUT",
     curve_samples: 20,
     weld: false,
@@ -24,7 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
     arc_sweep: 0.0,
     arc_align: "center",
     arc_inward: false,
-    view_mode: "wireframe", // "wireframe" | "fill"
+    construction_box: false,
+    extrude_depth: 5.0,
+    bevel_size: 0.3,
+    material_finish: "aluminum", // "aluminum" | "red-anodized" | "brass" | "acrylic-black" | "delrin-white"
+    view_mode: "wireframe", // "wireframe" | "fill" | "3d"
     zoom: 1.0,
   };
 
@@ -57,6 +61,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const arcAlignButtons = document.querySelectorAll('#arc-align-pill-group .pill-btn');
   const toggleArcInward = document.getElementById('toggle-arc-inward');
   const shapingModeTag = document.getElementById('shaping-mode-tag');
+
+  // Phase 3 Elements
+  const toggleConstructionBox = document.getElementById('toggle-construction-box');
+  const btnMode3d = document.getElementById('btn-mode-3d');
+  const webglStage = document.getElementById('webgl-stage');
+  const inputExtrudeRange = document.getElementById('input-extrude-range');
+  const inputExtrudeNum = document.getElementById('input-extrude-num');
+  const inputBevelRange = document.getElementById('input-bevel-range');
+  const inputBevelNum = document.getElementById('input-bevel-num');
+  const selectMaterial = document.getElementById('select-material');
+  const badge3dMaterial = document.getElementById('badge-3d-material');
+
+  // Inspector Elements
+  const btnInspectDxf = document.getElementById('btn-inspect-dxf');
+  const inspectorModal = document.getElementById('inspector-modal');
+  const btnCloseInspector = document.getElementById('btn-close-inspector');
+  const btnInspectCurrent = document.getElementById('btn-inspect-current');
+  const inspectorDropzone = document.getElementById('inspector-dropzone');
+  const inspectorFileInput = document.getElementById('inspector-file-input');
+  const inspectorReport = document.getElementById('inspector-report');
 
   const unitButtons = document.querySelectorAll('.unit-btn');
   const datumButtons = document.querySelectorAll('#datum-pill-group .pill-btn');
@@ -95,6 +119,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let debounceTimer = null;
   let lastCLICommand = "";
+  let currentSVG = "";
+  let currentBounds = null;
+
+  function getCurrentPayload() {
+    return {
+      text: state.text,
+      font_id: state.font_id,
+      size: parseFloat(state.size),
+      units: state.units,
+      kerning: parseFloat(state.kerning),
+      line_height: parseFloat(state.line_height),
+      datum: state.datum,
+      curve_samples: parseInt(state.curve_samples, 10),
+      layer_name: state.layer_name,
+      weld: Boolean(state.weld),
+      dxf_format: state.dxf_format,
+      slant_angle: parseFloat(state.slant_angle),
+      offset: parseFloat(state.offset),
+      corner_join: state.corner_join,
+      arc_enabled: Boolean(state.arc_enabled),
+      arc_radius: parseFloat(state.arc_radius),
+      arc_sweep: parseFloat(state.arc_sweep),
+      arc_align: state.arc_align,
+      arc_inward: Boolean(state.arc_inward),
+      construction_box: Boolean(state.construction_box),
+    };
+  }
 
   // 1. Initial Font Fetch
   async function loadFonts() {
@@ -148,27 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: state.text,
-          font_id: state.font_id,
-          size: parseFloat(state.size),
-          units: state.units,
-          kerning: parseFloat(state.kerning),
-          line_height: parseFloat(state.line_height),
-          datum: state.datum,
-          curve_samples: parseInt(state.curve_samples, 10),
-          layer_name: state.layer_name,
-          weld: Boolean(state.weld),
-          dxf_format: state.dxf_format,
-          slant_angle: parseFloat(state.slant_angle),
-          offset: parseFloat(state.offset),
-          corner_join: state.corner_join,
-          arc_enabled: Boolean(state.arc_enabled),
-          arc_radius: parseFloat(state.arc_radius),
-          arc_sweep: parseFloat(state.arc_sweep),
-          arc_align: state.arc_align,
-          arc_inward: Boolean(state.arc_inward),
-        })
+        body: JSON.stringify(getCurrentPayload())
       });
 
       if (!res.ok) {
@@ -178,9 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const data = await res.json();
+      currentSVG = data.svg;
+      currentBounds = data.bounds;
 
-      // Render SVG
-      svgContainer.innerHTML = data.svg;
+      // Render SVG in 2D container
+      svgContainer.innerHTML = currentSVG;
       applyViewMode();
 
       // Update Readouts
@@ -199,6 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.arc_enabled) parts.push("Arc");
         if (state.slant_angle !== 0) parts.push(`${state.slant_angle > 0 ? '+' : ''}${state.slant_angle}°`);
         if (state.offset !== 0) parts.push(`${state.offset > 0 ? '+' : ''}${state.offset}${state.units}`);
+        if (state.construction_box) parts.push("Box");
         shapingModeTag.textContent = parts.length > 0 ? parts.join(' · ') : 'Direct';
         shapingModeTag.style.color = parts.length > 0 ? '#60a5fa' : '';
       }
@@ -210,6 +244,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Position Datum Crosshair relative to SVG box
       updateDatumCrosshair();
+
+      // If in 3D mode, update the WebGL extrusion solid
+      if (state.view_mode === '3d') {
+        render3DExtrusion();
+      }
     } catch (err) {
       console.error('Preview fetch failed:', err);
     }
@@ -220,6 +259,8 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'bottom-left': return 'Bottom-Left (0,0)';
       case 'center': return 'Center (0,0)';
       case 'top-left': return 'Top-Left (0,0)';
+      case 'baseline-left': return 'Baseline-Left (0,0)';
+      case 'baseline-center': return 'Baseline-Center (0,0)';
       default: return datum;
     }
   }
@@ -232,22 +273,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateDatumCrosshair() {
     const svgElem = svgContainer.querySelector('svg');
-    if (!svgElem) return;
+    if (!svgElem || !currentBounds) return;
 
     const rect = svgElem.getBoundingClientRect();
     const wrapperRect = canvasWrapper.getBoundingClientRect();
 
-    // Compute relative origin in wrapper
-    let x = 0, y = 0;
-    if (state.datum === 'bottom-left') {
-      x = (rect.left - wrapperRect.left);
-      y = (rect.bottom - wrapperRect.top);
-    } else if (state.datum === 'center') {
-      x = (rect.left - wrapperRect.left) + rect.width / 2;
-      y = (rect.top - wrapperRect.top) + rect.height / 2;
-    } else if (state.datum === 'top-left') {
-      x = (rect.left - wrapperRect.left);
-      y = (rect.top - wrapperRect.top);
+    const w = currentBounds.max_x - currentBounds.min_x;
+    const h = currentBounds.max_y - currentBounds.min_y;
+
+    let x = (rect.left - wrapperRect.left);
+    let y = (rect.bottom - wrapperRect.top);
+
+    if (w > 0 && h > 0) {
+      const normX = -currentBounds.min_x / w;
+      const normY = currentBounds.max_y / h;
+      x = (rect.left - wrapperRect.left) + normX * rect.width;
+      y = (rect.top - wrapperRect.top) + normY * rect.height;
     }
 
     originIndicator.style.left = `${x}px`;
@@ -256,15 +297,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyViewMode() {
     if (state.view_mode === 'wireframe') {
+      canvasWrapper.style.display = 'flex';
+      webglStage.style.display = 'none';
       svgContainer.classList.add('view-mode-wireframe');
       svgContainer.classList.remove('view-mode-fill');
       btnModeWireframe.classList.add('active');
       btnModeFill.classList.remove('active');
-    } else {
+      if (btnMode3d) btnMode3d.classList.remove('active');
+    } else if (state.view_mode === 'fill') {
+      canvasWrapper.style.display = 'flex';
+      webglStage.style.display = 'none';
       svgContainer.classList.remove('view-mode-wireframe');
       svgContainer.classList.add('view-mode-fill');
       btnModeWireframe.classList.remove('active');
       btnModeFill.classList.add('active');
+      if (btnMode3d) btnMode3d.classList.remove('active');
+    } else if (state.view_mode === '3d') {
+      canvasWrapper.style.display = 'none';
+      webglStage.style.display = 'block';
+      btnModeWireframe.classList.remove('active');
+      btnModeFill.classList.remove('active');
+      if (btnMode3d) btnMode3d.classList.add('active');
+      render3DExtrusion();
     }
   }
 
@@ -477,6 +531,57 @@ document.addEventListener('DOMContentLoaded', () => {
     state.view_mode = 'fill';
     applyViewMode();
   });
+  if (btnMode3d) {
+    btnMode3d.addEventListener('click', () => {
+      state.view_mode = '3d';
+      applyViewMode();
+    });
+  }
+
+  // Phase 3: Reference Bounding Box (Construction Box) Toggle
+  if (toggleConstructionBox) {
+    toggleConstructionBox.addEventListener('change', () => {
+      state.construction_box = toggleConstructionBox.checked;
+      triggerUpdate();
+    });
+  }
+
+  // Phase 3: 3D Extrusion Sliders & Materials
+  if (inputExtrudeRange && inputExtrudeNum) {
+    inputExtrudeRange.addEventListener('input', () => {
+      state.extrude_depth = parseFloat(inputExtrudeRange.value);
+      inputExtrudeNum.value = state.extrude_depth.toFixed(1);
+      if (state.view_mode === '3d') render3DExtrusion();
+    });
+    inputExtrudeNum.addEventListener('input', () => {
+      state.extrude_depth = parseFloat(inputExtrudeNum.value) || 5.0;
+      inputExtrudeRange.value = state.extrude_depth;
+      if (state.view_mode === '3d') render3DExtrusion();
+    });
+  }
+
+  if (inputBevelRange && inputBevelNum) {
+    inputBevelRange.addEventListener('input', () => {
+      state.bevel_size = parseFloat(inputBevelRange.value);
+      inputBevelNum.value = state.bevel_size.toFixed(1);
+      if (state.view_mode === '3d') render3DExtrusion();
+    });
+    inputBevelNum.addEventListener('input', () => {
+      state.bevel_size = parseFloat(inputBevelNum.value) || 0.0;
+      inputBevelRange.value = state.bevel_size;
+      if (state.view_mode === '3d') render3DExtrusion();
+    });
+  }
+
+  if (selectMaterial) {
+    selectMaterial.addEventListener('change', () => {
+      state.material_finish = selectMaterial.value;
+      if (badge3dMaterial) {
+        badge3dMaterial.textContent = selectMaterial.options[selectMaterial.selectedIndex].text.split(' ')[0];
+      }
+      if (state.view_mode === '3d') render3DExtrusion();
+    });
+  }
 
   // Zoom Buttons
   btnZoomIn.addEventListener('click', () => {
@@ -611,27 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: state.text,
-          font_id: state.font_id,
-          size: parseFloat(state.size),
-          units: state.units,
-          kerning: parseFloat(state.kerning),
-          line_height: parseFloat(state.line_height),
-          datum: state.datum,
-          curve_samples: parseInt(state.curve_samples, 10),
-          layer_name: state.layer_name,
-          weld: Boolean(state.weld),
-          dxf_format: state.dxf_format,
-          slant_angle: parseFloat(state.slant_angle),
-          offset: parseFloat(state.offset),
-          corner_join: state.corner_join,
-          arc_enabled: Boolean(state.arc_enabled),
-          arc_radius: parseFloat(state.arc_radius),
-          arc_sweep: parseFloat(state.arc_sweep),
-          arc_align: state.arc_align,
-          arc_inward: Boolean(state.arc_inward),
-        })
+        body: JSON.stringify(getCurrentPayload())
       });
 
       if (!res.ok) throw new Error('Export failed');
@@ -676,6 +761,438 @@ document.addEventListener('DOMContentLoaded', () => {
     toast.textContent = msg;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  // ==========================================================================
+  // Phase 3: Three.js 3D Extrusion Engine (WebGL)
+  // ==========================================================================
+
+  let scene, camera, renderer, controls, textGroup, gridHelper;
+  let is3DInitialized = false;
+
+  function initThreeScene() {
+    if (is3DInitialized || typeof THREE === 'undefined') return;
+
+    const width = canvasStage.clientWidth || 800;
+    const height = canvasStage.clientHeight || 500;
+
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 3000);
+    camera.position.set(0, 140, 220);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    webglStage.innerHTML = '';
+    webglStage.appendChild(renderer.domElement);
+
+    if (THREE.OrbitControls) {
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.maxPolarAngle = Math.PI / 2 + 0.05; // keep above table
+      controls.target.set(0, 0, 0);
+    }
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.95);
+    keyLight.position.set(120, 200, 150);
+    keyLight.castShadow = true;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.45);
+    fillLight.position.set(-150, 100, -100);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xfca5a5, 0.35);
+    rimLight.position.set(0, -100, 120);
+    scene.add(rimLight);
+
+    // CAM Bed Grid (Millimeter scale)
+    gridHelper = new THREE.GridHelper(300, 30, 0xef4444, 0x1e293b);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    textGroup = new THREE.Group();
+    scene.add(textGroup);
+
+    window.addEventListener('resize', onWindowResize);
+
+    function onWindowResize() {
+      if (!webglStage || webglStage.style.display === 'none') return;
+      const w = canvasStage.clientWidth;
+      const h = canvasStage.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (controls) controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    is3DInitialized = true;
+  }
+
+  function getThreeMaterial(finish) {
+    switch (finish) {
+      case 'red-anodized':
+        return new THREE.MeshStandardMaterial({
+          color: 0xdc2626,
+          roughness: 0.22,
+          metalness: 0.72,
+        });
+      case 'brass':
+        return new THREE.MeshStandardMaterial({
+          color: 0xd97706,
+          roughness: 0.25,
+          metalness: 0.92,
+        });
+      case 'acrylic-black':
+        return new THREE.MeshStandardMaterial({
+          color: 0x18181b,
+          roughness: 0.12,
+          metalness: 0.05,
+        });
+      case 'delrin-white':
+        return new THREE.MeshStandardMaterial({
+          color: 0xf8fafc,
+          roughness: 0.45,
+          metalness: 0.02,
+        });
+      case 'aluminum':
+      default:
+        return new THREE.MeshStandardMaterial({
+          color: 0xc8d0d8,
+          roughness: 0.28,
+          metalness: 0.88,
+        });
+    }
+  }
+
+  function render3DExtrusion() {
+    if (!is3DInitialized) {
+      initThreeScene();
+    }
+    if (!currentSVG || typeof THREE === 'undefined' || !THREE.SVGLoader) return;
+
+    // Clear previous geometries
+    while (textGroup.children.length > 0) {
+      const child = textGroup.children[0];
+      textGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    }
+
+    const loader = new THREE.SVGLoader();
+    let svgData;
+    try {
+      svgData = loader.parse(currentSVG);
+    } catch (e) {
+      console.error("SVGLoader parsing error:", e);
+      return;
+    }
+
+    const material = getThreeMaterial(state.material_finish);
+    const depth = Math.max(0.5, parseFloat(state.extrude_depth));
+    const bevel = parseFloat(state.bevel_size);
+    const extrudeSettings = {
+      depth: depth,
+      bevelEnabled: bevel > 0.01,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelOffset: 0,
+      bevelSegments: 3,
+      curveSegments: 16,
+    };
+
+    for (const path of svgData.paths) {
+      const isConstruction = path.userData?.node?.classList?.contains('construction-frame');
+
+      if (isConstruction) {
+        // Wireframe line envelope on CAM table
+        const shapes = THREE.SVGLoader.createShapes(path);
+        shapes.forEach(shape => {
+          const points = shape.getPoints();
+          const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+          const lineMat = new THREE.LineDashedMaterial({
+            color: 0x94a3b8,
+            dashSize: 3,
+            gapSize: 2,
+            linewidth: 1,
+          });
+          const line = new THREE.Line(lineGeo, lineMat);
+          line.computeLineDistances();
+          line.rotation.x = -Math.PI / 2;
+          textGroup.add(line);
+        });
+        continue;
+      }
+
+      const shapes = THREE.SVGLoader.createShapes(path);
+      for (const shape of shapes) {
+        try {
+          const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          // Invert Y so text baseline is upright in Three.js coordinates
+          geom.scale(1, -1, 1);
+          const mesh = new THREE.Mesh(geom, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          textGroup.add(mesh);
+        } catch (err) {
+          console.warn("Failed to extrude shape:", err);
+        }
+      }
+    }
+
+    // Lie flat on CAM bed with Z-depth extruding upwards
+    textGroup.rotation.x = -Math.PI / 2;
+
+    const bbox = new THREE.Box3().setFromObject(textGroup);
+    const center = bbox.getCenter(new THREE.Vector3());
+    const size = bbox.getSize(new THREE.Vector3());
+
+    if (controls) {
+      controls.target.set(center.x, 0, center.z);
+      const maxDim = Math.max(size.x, size.z, 50);
+      camera.position.set(center.x, maxDim * 1.3, center.z + maxDim * 1.6);
+      controls.update();
+    }
+  }
+
+  // ==========================================================================
+  // Phase 3: DXF Health Inspector & Compatibility Linter
+  // ==========================================================================
+
+  function openInspector() {
+    inspectorModal.style.display = 'flex';
+  }
+
+  function closeInspector() {
+    inspectorModal.style.display = 'none';
+  }
+
+  if (btnInspectDxf) btnInspectDxf.addEventListener('click', openInspector);
+  if (btnCloseInspector) btnCloseInspector.addEventListener('click', closeInspector);
+  if (inspectorModal) {
+    inspectorModal.addEventListener('click', (e) => {
+      if (e.target === inspectorModal) closeInspector();
+    });
+  }
+
+  if (btnInspectCurrent) {
+    btnInspectCurrent.addEventListener('click', async () => {
+      showToast("Generating DXF for inspection...");
+      try {
+        const exportRes = await fetch('/api/export/dxf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getCurrentPayload())
+        });
+        if (!exportRes.ok) throw new Error("Failed to export current DXF");
+        const dxfData = await exportRes.arrayBuffer();
+
+        showToast("Linting DXF with AST Inspector...");
+        const inspectRes = await fetch('/api/inspect-dxf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: dxfData
+        });
+        if (!inspectRes.ok) throw new Error("Inspector error: " + await inspectRes.text());
+        const report = await inspectRes.json();
+        const baseName = (state.text.trim().substring(0, 16) || 'current').replace(/[^a-zA-Z0-9_-]/g, '_');
+        report.filename = `${baseName}.dxf (Current Studio Export)`;
+        renderInspectorReport(report);
+      } catch (err) {
+        showToast("Inspection failed: " + err.message);
+      }
+    });
+  }
+
+  if (inspectorDropzone && inspectorFileInput) {
+    inspectorDropzone.addEventListener('click', () => inspectorFileInput.click());
+    inspectorDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      inspectorDropzone.classList.add('drag-over');
+    });
+    inspectorDropzone.addEventListener('dragleave', () => inspectorDropzone.classList.remove('drag-over'));
+    inspectorDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      inspectorDropzone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length > 0) {
+        inspectUploadedFile(e.dataTransfer.files[0]);
+      }
+    });
+    inspectorFileInput.addEventListener('change', () => {
+      if (inspectorFileInput.files.length > 0) {
+        inspectUploadedFile(inspectorFileInput.files[0]);
+      }
+    });
+  }
+
+  async function inspectUploadedFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    showToast(`Analyzing ${file.name}...`);
+    try {
+      const res = await fetch('/api/inspect-dxf', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const report = await res.json();
+      renderInspectorReport(report);
+    } catch (err) {
+      showToast("Analysis error: " + err.message);
+    }
+  }
+
+  function renderInspectorReport(rep) {
+    let verdictClass = 'badge-pass';
+    let verdictText = 'PASS // CAD READY';
+    let verdictIcon = '✓';
+
+    const criticals = (rep.diagnostics || []).filter(d => d.Severity === 'CRITICAL');
+    const warnings = (rep.diagnostics || []).filter(d => d.Severity === 'WARNING');
+
+    if (criticals.length > 0 || !rep.cad_compatible) {
+      verdictClass = 'badge-crit';
+      verdictText = 'CRITICAL // CAD CONFLICT';
+      verdictIcon = '✕';
+    } else if (warnings.length > 0) {
+      verdictClass = 'badge-warn';
+      verdictText = 'WARNING // CHECK SOLVER';
+      verdictIcon = '⚠';
+    }
+
+    // Target CAD Matrix calculations
+    const splines = (rep.entity_counts && rep.entity_counts['SPLINE']) || 0;
+    const isAC1015 = rep.version === 'AC1015';
+    const hasObjects = (rep.sections || []).includes('OBJECTS');
+
+    let onshapeStatus = 'cad-status-ok', onshapeText = 'PASS (Native)';
+    if (splines > 250) {
+      onshapeStatus = 'cad-status-warn';
+      onshapeText = `SLOW (${splines} Splines)`;
+    }
+    if (isAC1015 && (!hasObjects || (rep.missing_sections && rep.missing_sections.length > 0))) {
+      onshapeStatus = 'cad-status-fail';
+      onshapeText = 'FAIL (Corrupt Schema)';
+    }
+
+    let fusionStatus = 'cad-status-ok', fusionText = 'PASS (1:1 Sketch)';
+    if (isAC1015 && rep.missing_sections && rep.missing_sections.length > 0) {
+      fusionStatus = 'cad-status-fail';
+      fusionText = 'FAIL (Missing Headers)';
+    }
+
+    let autoCADStatus = 'cad-status-ok', autoCADText = 'PASS (Canonical)';
+    let freeCADStatus = 'cad-status-ok', freeCADText = 'PASS (Draft / Sketch)';
+    let laserStatus = 'cad-status-ok', laserText = 'PASS (LightBurn / CNC)';
+    if (splines > 0 && rep.closed_loops === 0) {
+      laserStatus = 'cad-status-warn';
+      laserText = 'WARN (Check Polyline)';
+    }
+
+    const entitySummary = Object.entries(rep.entity_counts || {})
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(' · ') || 'None';
+
+    const findingsHtml = (rep.diagnostics || []).map(d => {
+      let icon = '•';
+      if (d.Severity === 'SUCCESS') icon = '✓';
+      else if (d.Severity === 'CRITICAL') icon = '✕';
+      else if (d.Severity === 'WARNING') icon = '⚠';
+      else if (d.Severity === 'INFO') icon = 'ℹ';
+      return `<div class="finding-item finding-${d.Severity}">
+        <span class="finding-icon">${icon}</span>
+        <div>${escapeHtml(d.Message)}</div>
+      </div>`;
+    }).join('');
+
+    inspectorReport.innerHTML = `
+      <!-- Summary Header -->
+      <div class="rep-header">
+        <div class="rep-file-info">
+          <h4>${escapeHtml(rep.filename || 'exported.dxf')}</h4>
+          <div class="rep-file-meta">${rep.version_name || rep.version} · ${rep.units || 'Millimeters'} · ${entitySummary}</div>
+        </div>
+        <div class="badge-verdict ${verdictClass}">${verdictIcon} ${verdictText}</div>
+      </div>
+
+      <!-- CAD Matrix -->
+      <div class="cad-matrix-wrap">
+        <div class="cad-matrix-title">Target CAD & CAM Compatibility</div>
+        <div class="cad-matrix-grid">
+          <div class="cad-card">
+            <div class="cad-card-name">Autodesk Fusion 360</div>
+            <div class="cad-card-status ${fusionStatus}">${fusionText}</div>
+          </div>
+          <div class="cad-card">
+            <div class="cad-card-name">PTC Onshape</div>
+            <div class="cad-card-status ${onshapeStatus}">${onshapeText}</div>
+          </div>
+          <div class="cad-card">
+            <div class="cad-card-name">AutoCAD (Autodesk)</div>
+            <div class="cad-card-status ${autoCADStatus}">${autoCADText}</div>
+          </div>
+          <div class="cad-card">
+            <div class="cad-card-name">FreeCAD</div>
+            <div class="cad-card-status ${freeCADStatus}">${freeCADText}</div>
+          </div>
+          <div class="cad-card">
+            <div class="cad-card-name">Laser / LightBurn</div>
+            <div class="cad-card-status ${laserStatus}">${laserText}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Numerical Extents & Entities -->
+      <div class="rep-stats-grid">
+        <div class="stat-box">
+          <div class="stat-box-val">${rep.width.toFixed(2)} × ${rep.height.toFixed(2)}</div>
+          <div class="stat-box-lbl">Dimensions (${rep.units || 'mm'})</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val">${rep.total_entities}</div>
+          <div class="stat-box-lbl">Total Entities</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" style="color: #34d399;">${rep.closed_loops}</div>
+          <div class="stat-box-lbl">Closed Loops</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" style="color: ${rep.open_curves > 0 ? '#f87171' : '#9ca3af'};">${rep.open_curves}</div>
+          <div class="stat-box-lbl">Open Curves</div>
+        </div>
+      </div>
+
+      <!-- Diagnostics findings -->
+      <div>
+        <div class="findings-title">Integrity & Geometry Diagnostics (${(rep.diagnostics || []).length})</div>
+        <div class="findings-list">
+          ${findingsHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // Start

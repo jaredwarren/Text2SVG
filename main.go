@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/jaredwarren/Text2SVG/pkg/converter"
+	"github.com/jaredwarren/Text2SVG/pkg/dxf"
 	"github.com/jaredwarren/Text2SVG/pkg/fonts"
 	"github.com/jaredwarren/Text2SVG/pkg/server"
 	"github.com/jaredwarren/Text2SVG/web"
@@ -24,12 +25,13 @@ func main() {
 	sizeFlag := flag.Float64("size", 30.0, "Font size / em-height in units (default 30.0)")
 	kerningFlag := flag.Float64("kerning", 0.0, "Extra letter spacing / kerning in units (default 0.0)")
 	leadingFlag := flag.Float64("leading", 1.2, "Line height multiplier for multi-line text (default 1.2)")
-	datumFlag := flag.String("datum", "bottom-left", "Origin datum point: bottom-left, center, top-left")
+	datumFlag := flag.String("datum", "bottom-left", "Origin datum point: bottom-left, center, top-left, baseline-left, baseline-center")
 	unitsFlag := flag.String("units", "mm", "Physical units: mm, in, px")
 	// DXF / CAM Flags
 	formatFlag := flag.String("format", "dxf", "Export format: dxf, svg")
 	dxfFormatFlag := flag.String("dxf-format", "spline", "DXF entity format: spline (AutoCAD 2000 AC1015 cubic SPLINE), polyline (R12/2000 LWPOLYLINE)")
 	weldFlag := flag.Bool("weld", false, "Weld overlapping letters into manifold profile (boolean union)")
+	constructionBoxFlag := flag.Bool("construction-box", false, "Emit reference bounding box (CONSTRUCTION layer in DXF, dashed frame in SVG)")
 	outFlag := flag.String("out", "", "Output destination filepath (e.g. output.dxf)")
 
 	// Phase 2: Surface Shaping & Tolerances Flags
@@ -42,17 +44,38 @@ func main() {
 	arcAlignFlag := flag.String("arc-align", "center", "Arc alignment: center, left, right")
 	arcInwardFlag := flag.Bool("arc-inward", false, "Orient text inward toward arc center")
 
+	// Phase 3: Diagnostics & Inspector
+	inspectFlag := flag.String("inspect", "", "Inspect and diagnose a DXF file for CAD/CAM compatibility")
+
 	portFlag := flag.Int("port", 8080, "Port for web studio server")
 	noBrowserFlag := flag.Bool("no-browser", false, "Do not automatically launch web browser")
 
 	flag.Parse()
+
+	// 0. DXF Inspector Mode (flag or 'inspect' subcommand)
+	inspectPath := *inspectFlag
+	if inspectPath == "" && len(flag.Args()) >= 2 && flag.Args()[0] == "inspect" {
+		inspectPath = flag.Args()[1]
+	}
+	if inspectPath != "" {
+		rep, err := dxf.InspectFile(inspectPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error inspecting DXF file '%s': %v\n", inspectPath, err)
+			os.Exit(1)
+		}
+		fmt.Print(rep.FormatTerminalReport())
+		if !rep.CADCompatible {
+			os.Exit(2)
+		}
+		return
+	}
 
 	// Initialize Font Manager
 	fontMgr := fonts.NewManager()
 
 	// 1. Headless CLI Mode
 	if *textFlag != "" {
-		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *slantFlag, *offsetFlag, *cornerJoinFlag, *arcFlag, *arcRadiusFlag, *arcSweepFlag, *arcAlignFlag, *arcInwardFlag, *outFlag)
+		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *slantFlag, *offsetFlag, *cornerJoinFlag, *arcFlag, *arcRadiusFlag, *arcSweepFlag, *arcAlignFlag, *arcInwardFlag, *constructionBoxFlag, *outFlag)
 		return
 	}
 
@@ -60,7 +83,7 @@ func main() {
 	runServer(fontMgr, *portFlag, !*noBrowserFlag)
 }
 
-func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, slant, offset float64, cornerJoin string, arc bool, arcRadius, arcSweep float64, arcAlign string, arcInward bool, outPath string) {
+func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, slant, offset float64, cornerJoin string, arc bool, arcRadius, arcSweep float64, arcAlign string, arcInward, constructionBox bool, outPath string) {
 	// Try loading font from path if it's a file, otherwise lookup in manager
 	var lf *converter.LoadedFont
 	if data, err := os.ReadFile(fontPath); err == nil {
@@ -80,24 +103,25 @@ func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leadin
 	}
 
 	params := converter.TextParams{
-		Text:         text,
-		Size:         size,
-		Units:        converter.Units(unitsStr),
-		Kerning:      kerning,
-		LineHeight:   leading,
-		Datum:        converter.Datum(datumStr),
-		CurveSamples: 20,
-		LayerName:    "CUT",
-		Weld:         weld,
-		DXFFormat:    converter.DXFFormat(dxfFormatStr),
-		SlantAngle:   slant,
-		Offset:       offset,
-		CornerJoin:   converter.CornerJoin(cornerJoin),
-		ArcEnabled:   arc,
-		ArcRadius:    arcRadius,
-		ArcSweep:     arcSweep,
-		ArcAlign:     converter.ArcAlignment(arcAlign),
-		ArcInward:    arcInward,
+		Text:            text,
+		Size:            size,
+		Units:           converter.Units(unitsStr),
+		Kerning:         kerning,
+		LineHeight:      leading,
+		Datum:           converter.Datum(datumStr),
+		CurveSamples:    20,
+		LayerName:       "CUT",
+		Weld:            weld,
+		DXFFormat:       converter.DXFFormat(dxfFormatStr),
+		SlantAngle:      slant,
+		Offset:          offset,
+		CornerJoin:      converter.CornerJoin(cornerJoin),
+		ArcEnabled:      arc,
+		ArcRadius:       arcRadius,
+		ArcSweep:        arcSweep,
+		ArcAlign:        converter.ArcAlignment(arcAlign),
+		ArcInward:       arcInward,
+		ConstructionBox: constructionBox,
 	}
 
 	result, err := lf.LayoutText(params)

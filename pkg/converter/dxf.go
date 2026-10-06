@@ -10,7 +10,7 @@ import (
 //   - DXFFormatSpline (AutoCAD 2000 AC1015): Native cubic B-spline (SPLINE) and LINE entities
 //     for true mathematically smooth surfaces in Fusion 360, SolidWorks, FreeCAD, and AutoCAD.
 //   - DXFFormatPolyline: Lightweight (LWPOLYLINE) or standard closed polylines.
-func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, layerName string, units Units) string {
+func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, layerName string, units Units, constructionBox bool, bounds BoundingBox) string {
 	if layerName == "" {
 		layerName = "CUT"
 	}
@@ -34,6 +34,11 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 		color = 2
 	} else if strings.Contains(upperLayer, "ENGRAVE") {
 		color = 5
+	}
+
+	layerCount := 2
+	if constructionBox {
+		layerCount++
 	}
 
 	var sb strings.Builder
@@ -63,9 +68,14 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 	sb.WriteString("  0\nENDTAB\n")
 
 	// Layer table
-	sb.WriteString("  0\nTABLE\n  2\nLAYER\n 70\n     2\n")
+	sb.WriteString("  0\nTABLE\n  2\nLAYER\n")
+	sb.WriteString(fmt.Sprintf(" 70\n%6d\n", layerCount))
 	sb.WriteString("  0\nLAYER\n  2\n0\n 70\n     0\n 62\n     7\n  6\nCONTINUOUS\n")
 	sb.WriteString(fmt.Sprintf("  0\nLAYER\n  2\n%s\n 70\n     0\n 62\n%6d\n  6\nCONTINUOUS\n", layerName, color))
+	if constructionBox {
+		// Gray color 8 for construction references
+		sb.WriteString("  0\nLAYER\n  2\nCONSTRUCTION\n 70\n     0\n 62\n     8\n  6\nCONTINUOUS\n")
+	}
 	sb.WriteString("  0\nENDTAB\n")
 
 	// Block Record table (required in AC1015)
@@ -84,6 +94,22 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 
 	// Entities section
 	sb.WriteString("  0\nSECTION\n  2\nENTITIES\n")
+
+	// Emit construction bounding box if requested
+	if constructionBox {
+		rectPts := []Point{
+			{X: bounds.MinX, Y: bounds.MinY},
+			{X: bounds.MaxX, Y: bounds.MinY},
+			{X: bounds.MaxX, Y: bounds.MaxY},
+			{X: bounds.MinX, Y: bounds.MaxY},
+			{X: bounds.MinX, Y: bounds.MinY},
+		}
+		if format == DXFFormatSpline {
+			emitLWPolyline(&sb, rectPts, "CONSTRUCTION", true)
+		} else {
+			emitR12Polyline(&sb, rectPts, "CONSTRUCTION", true)
+		}
+	}
 
 	if format == DXFFormatSpline && len(segments) > 0 {
 		// Output True DXF Splines and Lines from exact Bézier segments
