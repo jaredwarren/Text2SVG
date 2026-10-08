@@ -70,6 +70,15 @@ const (
 	ArcAlignRight  ArcAlignment = "right"
 )
 
+// BoundaryMode defines the outer perimeter enclosure type.
+type BoundaryMode string
+
+const (
+	BoundaryNone      BoundaryMode = "none"
+	BoundaryConformal BoundaryMode = "conformal" // Contour bubble tracing letter profiles
+	BoundaryBox       BoundaryMode = "box"       // Rectangle / rounded-box / pill enclosure
+)
+
 // TextParams defines all parameters for text shaping and vector export.
 type TextParams struct {
 	Text         string    `json:"text"`
@@ -95,6 +104,15 @@ type TextParams struct {
 
 	// Phase 3: Alignment & CAD Helpers
 	ConstructionBox bool `json:"construction_box"` // Export reference bounding box wireframe
+
+	// Phase 4: Perimeter Boundaries, Badges & Backing Plates
+	BoundaryMode      BoundaryMode `json:"boundary_mode"`       // "none", "conformal", "box"
+	BoundaryOffset    float64      `json:"boundary_offset"`     // Offset distance for conformal, or uniform padding for box
+	BoundaryPaddingY  float64      `json:"boundary_padding_y"`  // Optional asymmetric Y padding for box (if <= 0, uses BoundaryOffset)
+	BoundaryRadius    float64      `json:"boundary_radius"`     // Corner radius for box mode (0 = sharp, >= height/2 = pill/capsule)
+	BoundaryFillHoles bool         `json:"boundary_fill_holes"` // True = solid outer silhouette (fill interior counter holes)
+	BoundaryShiftX    float64      `json:"boundary_shift_x"`    // Manual X offset shift of boundary relative to text
+	BoundaryShiftY    float64      `json:"boundary_shift_y"`    // Manual Y offset shift of boundary relative to text
 }
 
 // Contour represents a continuous path loop (sequence of points).
@@ -135,6 +153,8 @@ type RenderResult struct {
 	DXF             string              `json:"dxf"`
 	GlyphCount      int                 `json:"glyph_count"`
 	PathCount       int                 `json:"path_count"`
-	Welded          bool                `json:"welded"`
-	DXFFormat       string              `json:"dxf_format"`
+	Welded           bool                `json:"welded"`
+	DXFFormat        string              `json:"dxf_format"`
+	BoundaryContours []Contour           `json:"boundary_contours,omitempty"`
+	BoundaryMode     string              `json:"boundary_mode,omitempty"`
 }

@@ -16,7 +16,7 @@ func TestInspectR12Polyline(t *testing.T) {
 		},
 		Closed: true,
 	}
-	dxfStr := converter.GenerateDXF([]converter.Contour{c1}, nil, converter.DXFFormatPolyline, "CUT", converter.UnitsMM, false, converter.BoundingBox{})
+	dxfStr := converter.GenerateDXF([]converter.Contour{c1}, nil, converter.DXFFormatPolyline, "CUT", converter.UnitsMM, false, converter.BoundingBox{}, nil)
 
 	rep, err := InspectReader(strings.NewReader(dxfStr))
 	if err != nil {
@@ -45,7 +45,7 @@ func TestInspectAC1015Splines(t *testing.T) {
 		{Type: converter.SegmentQuadTo, Args: []converter.Point{{X: 15, Y: 5}, {X: 20, Y: 10}}},
 		{Type: converter.SegmentClose, Args: nil},
 	}
-	dxfStr := converter.GenerateDXF(nil, segments, converter.DXFFormatSpline, "CUT", converter.UnitsMM, false, converter.BoundingBox{})
+	dxfStr := converter.GenerateDXF(nil, segments, converter.DXFFormatSpline, "CUT", converter.UnitsMM, false, converter.BoundingBox{}, nil)
 
 	rep, err := InspectReader(strings.NewReader(dxfStr))
 	if err != nil {

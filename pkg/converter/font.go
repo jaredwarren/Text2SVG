@@ -168,7 +168,7 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		params.LayerName = "CUT"
 	}
 	if params.Datum == "" {
-		params.Datum = DatumBottomLeft
+		params.Datum = DatumCenter
 	}
 
 	scale := params.Size / float64(lf.UnitsPerEm)
@@ -331,27 +331,86 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		}
 	}
 
+	textBounds := BoundingBox{MinX: minX, MinY: minY, MaxX: maxX, MaxY: maxY}
+
+	// 5. Generate Perimeter Boundary / Enclosure (Phase 4)
+	var boundaryContours []Contour
+	switch params.BoundaryMode {
+	case BoundaryConformal:
+		d := params.BoundaryOffset
+		if d <= 0 {
+			d = 3.0
+		}
+		boundaryContours = GenerateConformalBoundary(allContours, d, params.BoundaryFillHoles, params.CornerJoin, 3.0)
+	case BoundaryBox:
+		padX := params.BoundaryOffset
+		if padX <= 0 {
+			padX = 5.0
+		}
+		padY := params.BoundaryPaddingY
+		if padY <= 0 {
+			padY = padX
+		}
+		box := GenerateBoxBoundary(textBounds, padX, padY, params.BoundaryRadius, 8)
+		boundaryContours = []Contour{box}
+	}
+
+	// Apply manual boundary shift offsets if specified
+	if len(boundaryContours) > 0 && (params.BoundaryShiftX != 0 || params.BoundaryShiftY != 0) {
+		for i := range boundaryContours {
+			for j := range boundaryContours[i].Points {
+				boundaryContours[i].Points[j].X += params.BoundaryShiftX
+				boundaryContours[i].Points[j].Y += params.BoundaryShiftY
+			}
+		}
+	}
+
+	// Compute combined bounds across text and boundary
+	combMinX, combMinY := textBounds.MinX, textBounds.MinY
+	combMaxX, combMaxY := textBounds.MaxX, textBounds.MaxY
+	if len(boundaryContours) > 0 {
+		for _, c := range boundaryContours {
+			for _, p := range c.Points {
+				if p.X < combMinX {
+					combMinX = p.X
+				}
+				if p.X > combMaxX {
+					combMaxX = p.X
+				}
+				if p.Y < combMinY {
+					combMinY = p.Y
+				}
+				if p.Y > combMaxY {
+					combMaxY = p.Y
+				}
+			}
+		}
+	}
+
+	textCenterX := (textBounds.MinX + textBounds.MaxX) / 2.0
+	textCenterY := (textBounds.MinY + textBounds.MaxY) / 2.0
+
 	// Apply Datum offset
 	var offsetX, offsetY float64
 	switch params.Datum {
-	case DatumBottomLeft:
-		offsetX = -minX
-		offsetY = -minY
 	case DatumCenter:
-		offsetX = -(minX + maxX) / 2.0
-		offsetY = -(minY + maxY) / 2.0
+		offsetX = -textCenterX
+		offsetY = -textCenterY
+	case DatumBottomLeft:
+		offsetX = -combMinX
+		offsetY = -combMinY
 	case DatumTopLeft:
-		offsetX = -minX
-		offsetY = -maxY
+		offsetX = -combMinX
+		offsetY = -combMaxY
 	case DatumBaselineLeft:
-		offsetX = -minX
+		offsetX = -combMinX
 		offsetY = 0.0
 	case DatumBaselineCenter:
-		offsetX = -(minX + maxX) / 2.0
+		offsetX = -textCenterX
 		offsetY = 0.0
 	default:
-		offsetX = -minX
-		offsetY = -minY
+		offsetX = -textCenterX
+		offsetY = -textCenterY
 	}
 
 	// Shift all points by datum offset
@@ -361,10 +420,10 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 			allContours[i].Points[j].Y += offsetY
 		}
 	}
-	for i := range classifiedPaths {
-		for j := range classifiedPaths[i].Points {
-			classifiedPaths[i].Points[j].X += offsetX
-			classifiedPaths[i].Points[j].Y += offsetY
+	for i := range boundaryContours {
+		for j := range boundaryContours[i].Points {
+			boundaryContours[i].Points[j].X += offsetX
+			boundaryContours[i].Points[j].Y += offsetY
 		}
 	}
 	for i := range allSegments {
@@ -374,12 +433,17 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		}
 	}
 
+	// Reclassify shifted contours so classifiedPaths has fresh, independent coordinates (no aliasing)
+	if len(allContours) > 0 {
+		classifiedPaths = ClassifyAndOrientContours(allContours, 1e-4)
+	}
+
 	// Recalculate bounds
 	bounds := BoundingBox{
-		MinX: minX + offsetX,
-		MinY: minY + offsetY,
-		MaxX: maxX + offsetX,
-		MaxY: maxY + offsetY,
+		MinX: combMinX + offsetX,
+		MinY: combMinY + offsetY,
+		MaxX: combMaxX + offsetX,
+		MaxY: combMaxY + offsetY,
 	}
 
 	// Generate DXF and SVG strings
@@ -388,18 +452,20 @@ func (lf *LoadedFont) LayoutText(params TextParams) (*RenderResult, error) {
 		dxfFormat = DXFFormatSpline
 	}
 
-	dxfStr := GenerateDXF(allContours, allSegments, dxfFormat, params.LayerName, params.Units, params.ConstructionBox, bounds)
-	svgStr := GenerateSVG(allContours, allSegments, bounds, params.Units, params.ConstructionBox)
+	dxfStr := GenerateDXF(allContours, allSegments, dxfFormat, params.LayerName, params.Units, params.ConstructionBox, bounds, boundaryContours)
+	svgStr := GenerateSVG(allContours, allSegments, bounds, params.Units, params.ConstructionBox, boundaryContours)
 
 	return &RenderResult{
-		Contours:        allContours,
-		ClassifiedPaths: classifiedPaths,
-		Bounds:          bounds,
-		SVG:             svgStr,
-		DXF:             dxfStr,
-		GlyphCount:      glyphCount,
-		PathCount:       len(allContours),
-		Welded:          isWelded,
-		DXFFormat:       string(dxfFormat),
+		Contours:         allContours,
+		BoundaryContours: boundaryContours,
+		BoundaryMode:     string(params.BoundaryMode),
+		ClassifiedPaths:  classifiedPaths,
+		Bounds:           bounds,
+		SVG:              svgStr,
+		DXF:              dxfStr,
+		GlyphCount:       glyphCount,
+		PathCount:        len(allContours) + len(boundaryContours),
+		Welded:           isWelded,
+		DXFFormat:        string(dxfFormat),
 	}, nil
 }

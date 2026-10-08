@@ -30,6 +30,14 @@ func TestOffsetSquare(t *testing.T) {
 	if math.Abs(bIn.MinX-2.0) > 0.1 || math.Abs(bIn.MaxX-8.0) > 0.1 {
 		t.Errorf("Unexpected inward bounds: %v", bIn)
 	}
+
+	// 3. Outward offset with JoinRound
+	roundOut := OffsetContour(sq, 2.0, JoinRound, 3.0)
+	bRound := ContourBoundingBox(roundOut)
+	t.Logf("Round bounds: min=(%.2f, %.2f) max=(%.2f, %.2f) pts=%d", bRound.MinX, bRound.MinY, bRound.MaxX, bRound.MaxY, len(roundOut))
+	for i, p := range roundOut {
+		t.Logf("pt %d: (%.2f, %.2f)", i, p.X, p.Y)
+	}
 }
 
 func TestOffsetLetterO(t *testing.T) {

@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     units: "mm",
     kerning: 0.0,
     line_height: 1.20,
-    datum: "bottom-left", // "bottom-left" | "center" | "top-left" | "baseline-left" | "baseline-center"
+    datum: "center", // "center" | "bottom-left" | "top-left" | "baseline-left" | "baseline-center"
     layer_name: "CUT",
     curve_samples: 20,
     weld: false,
@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
     arc_align: "center",
     arc_inward: false,
     construction_box: false,
+    boundary_mode: "none", // "none" | "conformal" | "box"
+    boundary_offset: 4.0,
+    boundary_padding_y: 0.0,
+    boundary_radius: 3.0,
+    boundary_fill_holes: true,
+    boundary_shift_x: 0.0,
+    boundary_shift_y: 0.0,
     extrude_depth: 5.0,
     bevel_size: 0.3,
     material_finish: "aluminum", // "aluminum" | "red-anodized" | "brass" | "acrylic-black" | "delrin-white"
@@ -61,6 +68,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const arcAlignButtons = document.querySelectorAll('#arc-align-pill-group .pill-btn');
   const toggleArcInward = document.getElementById('toggle-arc-inward');
   const shapingModeTag = document.getElementById('shaping-mode-tag');
+
+  // Phase 4 Elements (Perimeter Boundary & Badge)
+  const selectBoundaryMode = document.getElementById('select-boundary-mode');
+  const boundaryModeTag = document.getElementById('boundary-mode-tag');
+  const boundaryOptionsPanel = document.getElementById('boundary-options-panel');
+  const labelBoundaryOffset = document.getElementById('label-boundary-offset');
+  const hintBoundaryOffset = document.getElementById('hint-boundary-offset');
+  const inputBoundaryOffsetRange = document.getElementById('input-boundary-offset-range');
+  const inputBoundaryOffsetNum = document.getElementById('input-boundary-offset-num');
+  const groupBoundaryPaddy = document.getElementById('group-boundary-paddy');
+  const inputBoundaryPaddyRange = document.getElementById('input-boundary-paddy-range');
+  const inputBoundaryPaddyNum = document.getElementById('input-boundary-paddy-num');
+  const groupBoundaryRadius = document.getElementById('group-boundary-radius');
+  const inputBoundaryRadiusRange = document.getElementById('input-boundary-radius-range');
+  const inputBoundaryRadiusNum = document.getElementById('input-boundary-radius-num');
+  const groupBoundaryFillHoles = document.getElementById('group-boundary-fill-holes');
+  const toggleBoundaryFillHoles = document.getElementById('toggle-boundary-fill-holes');
+  const boundaryDatumButtons = document.querySelectorAll('#boundary-datum-pill-group .pill-btn');
+  const inputBoundaryShiftXRange = document.getElementById('input-boundary-shiftx-range');
+  const inputBoundaryShiftXNum = document.getElementById('input-boundary-shiftx-num');
+  const inputBoundaryShiftYRange = document.getElementById('input-boundary-shifty-range');
+  const inputBoundaryShiftYNum = document.getElementById('input-boundary-shifty-num');
 
   // Phase 3 Elements
   const toggleConstructionBox = document.getElementById('toggle-construction-box');
@@ -144,6 +173,13 @@ document.addEventListener('DOMContentLoaded', () => {
       arc_align: state.arc_align,
       arc_inward: Boolean(state.arc_inward),
       construction_box: Boolean(state.construction_box),
+      boundary_mode: state.boundary_mode,
+      boundary_offset: parseFloat(state.boundary_offset),
+      boundary_padding_y: parseFloat(state.boundary_padding_y),
+      boundary_radius: parseFloat(state.boundary_radius),
+      boundary_fill_holes: Boolean(state.boundary_fill_holes),
+      boundary_shift_x: parseFloat(state.boundary_shift_x) || 0.0,
+      boundary_shift_y: parseFloat(state.boundary_shift_y) || 0.0,
     };
   }
 
@@ -219,20 +255,30 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update Readouts
       readoutDims.textContent = `${data.width.toFixed(2)} × ${data.height.toFixed(2)} ${state.units}`;
       readoutDatum.textContent = formatDatumLabel(state.datum);
-      readoutLayer.textContent = `${state.layer_name} (${getLayerColorName(state.layer_name)})`;
+      if (state.boundary_mode !== 'none') {
+        readoutLayer.textContent = `${state.layer_name} + BORDER (Cyan)`;
+      } else {
+        readoutLayer.textContent = `${state.layer_name} (${getLayerColorName(state.layer_name)})`;
+      }
       if (readoutTopology) {
-        readoutTopology.textContent = data.welded ? "Manifold (Welded)" : "Standard";
-        readoutTopology.style.color = data.welded ? "#34d399" : "";
+        let topoStr = data.welded ? "Manifold (Welded)" : "Standard";
+        if (state.boundary_mode === 'conformal') topoStr += " · Conformal Badge";
+        else if (state.boundary_mode === 'box') topoStr += " · Box Enclosure";
+        readoutTopology.textContent = topoStr;
+        readoutTopology.style.color = (data.welded || state.boundary_mode !== 'none') ? "#34d399" : "";
       }
       if (cadModeTag) {
         cadModeTag.textContent = state.dxf_format === 'spline' ? 'AC1015 Spline' : 'AC1009 Poly';
       }
       if (shapingModeTag) {
         const parts = [];
+        if (state.boundary_mode !== 'none') {
+          parts.push(state.boundary_mode === 'conformal' ? 'Conformal' : 'Box Badge');
+        }
         if (state.arc_enabled) parts.push("Arc");
         if (state.slant_angle !== 0) parts.push(`${state.slant_angle > 0 ? '+' : ''}${state.slant_angle}°`);
         if (state.offset !== 0) parts.push(`${state.offset > 0 ? '+' : ''}${state.offset}${state.units}`);
-        if (state.construction_box) parts.push("Box");
+        if (state.construction_box) parts.push("Guide Frame");
         shapingModeTag.textContent = parts.length > 0 ? parts.join(' · ') : 'Direct';
         shapingModeTag.style.color = parts.length > 0 ? '#60a5fa' : '';
       }
@@ -468,6 +514,126 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Phase 4: Perimeter Boundary & Badge Controls
+  function updateBoundaryUI() {
+    if (!selectBoundaryMode) return;
+    state.boundary_mode = selectBoundaryMode.value;
+
+    if (state.boundary_mode === 'none') {
+      if (boundaryOptionsPanel) boundaryOptionsPanel.style.display = 'none';
+      if (boundaryModeTag) {
+        boundaryModeTag.textContent = 'None';
+        boundaryModeTag.className = 'badge-mini';
+        boundaryModeTag.style.color = '';
+      }
+    } else if (state.boundary_mode === 'conformal') {
+      if (boundaryOptionsPanel) boundaryOptionsPanel.style.display = 'block';
+      if (boundaryModeTag) {
+        boundaryModeTag.textContent = 'Conformal';
+        boundaryModeTag.className = 'badge-mini badge-active';
+        boundaryModeTag.style.color = '#06b6d4';
+      }
+      if (labelBoundaryOffset) labelBoundaryOffset.textContent = 'Contour Offset Distance';
+      if (hintBoundaryOffset) hintBoundaryOffset.textContent = 'Outward bubble contour distance around letter profiles';
+      if (groupBoundaryPaddy) groupBoundaryPaddy.style.display = 'none';
+      if (groupBoundaryRadius) groupBoundaryRadius.style.display = 'none';
+      if (groupBoundaryFillHoles) groupBoundaryFillHoles.style.display = 'flex';
+    } else if (state.boundary_mode === 'box') {
+      if (boundaryOptionsPanel) boundaryOptionsPanel.style.display = 'block';
+      if (boundaryModeTag) {
+        boundaryModeTag.textContent = 'Box Enclosure';
+        boundaryModeTag.className = 'badge-mini badge-active';
+        boundaryModeTag.style.color = '#06b6d4';
+      }
+      if (labelBoundaryOffset) labelBoundaryOffset.textContent = 'Padding X (or Uniform)';
+      if (hintBoundaryOffset) hintBoundaryOffset.textContent = 'Horizontal margin / uniform boundary padding around envelope';
+      if (groupBoundaryPaddy) groupBoundaryPaddy.style.display = 'block';
+      if (groupBoundaryRadius) groupBoundaryRadius.style.display = 'block';
+      if (groupBoundaryFillHoles) groupBoundaryFillHoles.style.display = 'none';
+    }
+  }
+
+  if (selectBoundaryMode) {
+    selectBoundaryMode.addEventListener('change', () => {
+      updateBoundaryUI();
+      triggerUpdate();
+    });
+  }
+
+  if (inputBoundaryOffsetRange && inputBoundaryOffsetNum) {
+    inputBoundaryOffsetRange.addEventListener('input', () => {
+      state.boundary_offset = parseFloat(inputBoundaryOffsetRange.value);
+      inputBoundaryOffsetNum.value = state.boundary_offset.toFixed(1);
+      triggerUpdate();
+    });
+    inputBoundaryOffsetNum.addEventListener('input', () => {
+      state.boundary_offset = parseFloat(inputBoundaryOffsetNum.value) || 4.0;
+      inputBoundaryOffsetRange.value = state.boundary_offset;
+      triggerUpdate();
+    });
+  }
+
+  if (inputBoundaryPaddyRange && inputBoundaryPaddyNum) {
+    inputBoundaryPaddyRange.addEventListener('input', () => {
+      state.boundary_padding_y = parseFloat(inputBoundaryPaddyRange.value);
+      inputBoundaryPaddyNum.value = state.boundary_padding_y.toFixed(1);
+      triggerUpdate();
+    });
+    inputBoundaryPaddyNum.addEventListener('input', () => {
+      state.boundary_padding_y = parseFloat(inputBoundaryPaddyNum.value) || 0.0;
+      inputBoundaryPaddyRange.value = state.boundary_padding_y;
+      triggerUpdate();
+    });
+  }
+
+  if (inputBoundaryRadiusRange && inputBoundaryRadiusNum) {
+    inputBoundaryRadiusRange.addEventListener('input', () => {
+      state.boundary_radius = parseFloat(inputBoundaryRadiusRange.value);
+      inputBoundaryRadiusNum.value = state.boundary_radius.toFixed(1);
+      triggerUpdate();
+    });
+    inputBoundaryRadiusNum.addEventListener('input', () => {
+      state.boundary_radius = parseFloat(inputBoundaryRadiusNum.value) || 0.0;
+      inputBoundaryRadiusRange.value = state.boundary_radius;
+      triggerUpdate();
+    });
+  }
+
+  if (toggleBoundaryFillHoles) {
+    toggleBoundaryFillHoles.addEventListener('change', () => {
+      state.boundary_fill_holes = toggleBoundaryFillHoles.checked;
+      triggerUpdate();
+    });
+  }
+
+  // Boundary Shift X Sync
+  if (inputBoundaryShiftXRange && inputBoundaryShiftXNum) {
+    inputBoundaryShiftXRange.addEventListener('input', () => {
+      state.boundary_shift_x = parseFloat(inputBoundaryShiftXRange.value) || 0.0;
+      inputBoundaryShiftXNum.value = state.boundary_shift_x.toFixed(1);
+      triggerUpdate();
+    });
+    inputBoundaryShiftXNum.addEventListener('input', () => {
+      state.boundary_shift_x = parseFloat(inputBoundaryShiftXNum.value) || 0.0;
+      inputBoundaryShiftXRange.value = state.boundary_shift_x;
+      triggerUpdate();
+    });
+  }
+
+  // Boundary Shift Y Sync
+  if (inputBoundaryShiftYRange && inputBoundaryShiftYNum) {
+    inputBoundaryShiftYRange.addEventListener('input', () => {
+      state.boundary_shift_y = parseFloat(inputBoundaryShiftYRange.value) || 0.0;
+      inputBoundaryShiftYNum.value = state.boundary_shift_y.toFixed(1);
+      triggerUpdate();
+    });
+    inputBoundaryShiftYNum.addEventListener('input', () => {
+      state.boundary_shift_y = parseFloat(inputBoundaryShiftYNum.value) || 0.0;
+      inputBoundaryShiftYRange.value = state.boundary_shift_y;
+      triggerUpdate();
+    });
+  }
+
   // Units Buttons
   unitButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -481,15 +647,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Datum Buttons
+  // Datum Sync Function
+  function setDatum(datum) {
+    state.datum = datum;
+    datumButtons.forEach(b => b.classList.toggle('active', b.dataset.datum === datum));
+    if (boundaryDatumButtons) {
+      boundaryDatumButtons.forEach(b => b.classList.toggle('active', b.dataset.datum === datum));
+    }
+    triggerUpdate();
+  }
+
+  // Datum Buttons (CAD & CAM panel)
   datumButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      datumButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.datum = btn.dataset.datum;
-      triggerUpdate();
+      setDatum(btn.dataset.datum);
     });
   });
+
+  // Boundary Datum Buttons (Perimeter Boundary panel)
+  if (boundaryDatumButtons) {
+    boundaryDatumButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        setDatum(btn.dataset.datum);
+      });
+    });
+  }
 
   // Layer Select
   selectLayer.addEventListener('change', () => {
@@ -696,6 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Sync UI buttons
     datumButtons.forEach(b => b.classList.toggle('active', b.dataset.datum === state.datum));
+    if (boundaryDatumButtons) boundaryDatumButtons.forEach(b => b.classList.toggle('active', b.dataset.datum === state.datum));
     unitButtons.forEach(b => b.classList.toggle('active', b.dataset.unit === state.units));
     applyViewMode();
     triggerUpdate();
@@ -919,6 +1102,29 @@ document.addEventListener('DOMContentLoaded', () => {
       curveSegments: 16,
     };
 
+    const hasBoundary = svgData.paths.some(p => {
+      const cls = p.userData?.node?.getAttribute('class') || '';
+      return cls.includes('boundary-path') || p.userData?.node?.classList?.contains('boundary-path');
+    });
+
+    const baseDepth = Math.max(1.5, Math.min(4.0, depth * 0.6));
+    const baseplateSettings = {
+      depth: baseDepth,
+      bevelEnabled: bevel > 0.01,
+      bevelThickness: Math.min(bevel, 0.4),
+      bevelSize: Math.min(bevel, 0.4),
+      bevelOffset: 0,
+      bevelSegments: 2,
+      curveSegments: 16,
+    };
+
+    // Contrasting material for physical backing plate
+    const baseplateMaterial = new THREE.MeshStandardMaterial({
+      color: state.material_finish === 'acrylic-black' ? 0x94a3b8 : 0x1e293b,
+      roughness: 0.35,
+      metalness: state.material_finish === 'acrylic-black' ? 0.75 : 0.4,
+    });
+
     for (const path of svgData.paths) {
       const isConstruction = path.userData?.node?.classList?.contains('construction-frame');
 
@@ -942,15 +1148,24 @@ document.addEventListener('DOMContentLoaded', () => {
         continue;
       }
 
+      const isBoundary = (path.userData?.node?.getAttribute('class') || '').includes('boundary-path') ||
+                         path.userData?.node?.classList?.contains('boundary-path');
+
       const shapes = THREE.SVGLoader.createShapes(path);
       for (const shape of shapes) {
         try {
-          const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          const geom = new THREE.ExtrudeGeometry(shape, isBoundary ? baseplateSettings : extrudeSettings);
           // Invert Y so text baseline is upright in Three.js coordinates
           geom.scale(1, -1, 1);
-          const mesh = new THREE.Mesh(geom, material);
+          const mat = isBoundary ? baseplateMaterial : material;
+          const mesh = new THREE.Mesh(geom, mat);
           mesh.castShadow = true;
           mesh.receiveShadow = true;
+          if (isBoundary) {
+            mesh.position.z = 0;
+          } else if (hasBoundary) {
+            mesh.position.z = baseDepth;
+          }
           textGroup.add(mesh);
         } catch (err) {
           console.warn("Failed to extrude shape:", err);

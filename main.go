@@ -25,7 +25,7 @@ func main() {
 	sizeFlag := flag.Float64("size", 30.0, "Font size / em-height in units (default 30.0)")
 	kerningFlag := flag.Float64("kerning", 0.0, "Extra letter spacing / kerning in units (default 0.0)")
 	leadingFlag := flag.Float64("leading", 1.2, "Line height multiplier for multi-line text (default 1.2)")
-	datumFlag := flag.String("datum", "bottom-left", "Origin datum point: bottom-left, center, top-left, baseline-left, baseline-center")
+	datumFlag := flag.String("datum", "center", "Origin datum point: center, bottom-left, top-left, baseline-left, baseline-center")
 	unitsFlag := flag.String("units", "mm", "Physical units: mm, in, px")
 	// DXF / CAM Flags
 	formatFlag := flag.String("format", "dxf", "Export format: dxf, svg")
@@ -46,6 +46,15 @@ func main() {
 
 	// Phase 3: Diagnostics & Inspector
 	inspectFlag := flag.String("inspect", "", "Inspect and diagnose a DXF file for CAD/CAM compatibility")
+
+	// Phase 4: Perimeter Boundaries & Badges
+	boundaryFlag := flag.String("boundary", "none", "Perimeter boundary mode: none, conformal, box")
+	boundaryOffsetFlag := flag.Float64("boundary-offset", 3.0, "Boundary offset / box padding in units (default 3.0)")
+	boundaryPaddingYFlag := flag.Float64("boundary-padding-y", 0.0, "Box boundary asymmetric Y padding in units (0 = same as X)")
+	boundaryRadiusFlag := flag.Float64("boundary-radius", 0.0, "Box boundary corner radius in units (0 = sharp, >= height/2 = pill)")
+	boundaryFillHolesFlag := flag.Bool("boundary-fill-holes", true, "Fill internal counter holes in conformal boundary")
+	boundaryShiftXFlag := flag.Float64("boundary-shift-x", 0.0, "Boundary offset shift X in units (default 0.0)")
+	boundaryShiftYFlag := flag.Float64("boundary-shift-y", 0.0, "Boundary offset shift Y in units (default 0.0)")
 
 	portFlag := flag.Int("port", 8080, "Port for web studio server")
 	noBrowserFlag := flag.Bool("no-browser", false, "Do not automatically launch web browser")
@@ -75,7 +84,7 @@ func main() {
 
 	// 1. Headless CLI Mode
 	if *textFlag != "" {
-		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *slantFlag, *offsetFlag, *cornerJoinFlag, *arcFlag, *arcRadiusFlag, *arcSweepFlag, *arcAlignFlag, *arcInwardFlag, *constructionBoxFlag, *outFlag)
+		runHeadless(fontMgr, *textFlag, *fontFlag, *sizeFlag, *kerningFlag, *leadingFlag, *datumFlag, *unitsFlag, *formatFlag, *dxfFormatFlag, *weldFlag, *slantFlag, *offsetFlag, *cornerJoinFlag, *arcFlag, *arcRadiusFlag, *arcSweepFlag, *arcAlignFlag, *arcInwardFlag, *constructionBoxFlag, *boundaryFlag, *boundaryOffsetFlag, *boundaryPaddingYFlag, *boundaryRadiusFlag, *boundaryFillHolesFlag, *boundaryShiftXFlag, *boundaryShiftYFlag, *outFlag)
 		return
 	}
 
@@ -83,7 +92,7 @@ func main() {
 	runServer(fontMgr, *portFlag, !*noBrowserFlag)
 }
 
-func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, slant, offset float64, cornerJoin string, arc bool, arcRadius, arcSweep float64, arcAlign string, arcInward, constructionBox bool, outPath string) {
+func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leading float64, datumStr, unitsStr, formatStr, dxfFormatStr string, weld bool, slant, offset float64, cornerJoin string, arc bool, arcRadius, arcSweep float64, arcAlign string, arcInward, constructionBox bool, boundaryStr string, boundaryOffset, boundaryPaddingY, boundaryRadius float64, boundaryFillHoles bool, boundaryShiftX, boundaryShiftY float64, outPath string) {
 	// Try loading font from path if it's a file, otherwise lookup in manager
 	var lf *converter.LoadedFont
 	if data, err := os.ReadFile(fontPath); err == nil {
@@ -103,25 +112,32 @@ func runHeadless(fm *fonts.Manager, text, fontPath string, size, kerning, leadin
 	}
 
 	params := converter.TextParams{
-		Text:            text,
-		Size:            size,
-		Units:           converter.Units(unitsStr),
-		Kerning:         kerning,
-		LineHeight:      leading,
-		Datum:           converter.Datum(datumStr),
-		CurveSamples:    20,
-		LayerName:       "CUT",
-		Weld:            weld,
-		DXFFormat:       converter.DXFFormat(dxfFormatStr),
-		SlantAngle:      slant,
-		Offset:          offset,
-		CornerJoin:      converter.CornerJoin(cornerJoin),
-		ArcEnabled:      arc,
-		ArcRadius:       arcRadius,
-		ArcSweep:        arcSweep,
-		ArcAlign:        converter.ArcAlignment(arcAlign),
-		ArcInward:       arcInward,
-		ConstructionBox: constructionBox,
+		Text:              text,
+		Size:              size,
+		Units:             converter.Units(unitsStr),
+		Kerning:           kerning,
+		LineHeight:        leading,
+		Datum:             converter.Datum(datumStr),
+		CurveSamples:      20,
+		LayerName:         "CUT",
+		Weld:              weld,
+		DXFFormat:         converter.DXFFormat(dxfFormatStr),
+		SlantAngle:        slant,
+		Offset:            offset,
+		CornerJoin:        converter.CornerJoin(cornerJoin),
+		ArcEnabled:        arc,
+		ArcRadius:         arcRadius,
+		ArcSweep:          arcSweep,
+		ArcAlign:          converter.ArcAlignment(arcAlign),
+		ArcInward:         arcInward,
+		ConstructionBox:   constructionBox,
+		BoundaryMode:      converter.BoundaryMode(boundaryStr),
+		BoundaryOffset:    boundaryOffset,
+		BoundaryPaddingY:  boundaryPaddingY,
+		BoundaryRadius:    boundaryRadius,
+		BoundaryFillHoles: boundaryFillHoles,
+		BoundaryShiftX:    boundaryShiftX,
+		BoundaryShiftY:    boundaryShiftY,
 	}
 
 	result, err := lf.LayoutText(params)

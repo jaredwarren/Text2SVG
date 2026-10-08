@@ -10,7 +10,7 @@ import (
 //   - DXFFormatSpline (AutoCAD 2000 AC1015): Native cubic B-spline (SPLINE) and LINE entities
 //     for true mathematically smooth surfaces in Fusion 360, SolidWorks, FreeCAD, and AutoCAD.
 //   - DXFFormatPolyline: Lightweight (LWPOLYLINE) or standard closed polylines.
-func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, layerName string, units Units, constructionBox bool, bounds BoundingBox) string {
+func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, layerName string, units Units, constructionBox bool, bounds BoundingBox, boundaryContours []Contour) string {
 	if layerName == "" {
 		layerName = "CUT"
 	}
@@ -38,6 +38,9 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 
 	layerCount := 2
 	if constructionBox {
+		layerCount++
+	}
+	if len(boundaryContours) > 0 {
 		layerCount++
 	}
 
@@ -76,6 +79,10 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 		// Gray color 8 for construction references
 		sb.WriteString("  0\nLAYER\n  2\nCONSTRUCTION\n 70\n     0\n 62\n     8\n  6\nCONTINUOUS\n")
 	}
+	if len(boundaryContours) > 0 {
+		// Cyan color 4 for perimeter BORDER
+		sb.WriteString("  0\nLAYER\n  2\nBORDER\n 70\n     0\n 62\n     4\n  6\nCONTINUOUS\n")
+	}
 	sb.WriteString("  0\nENDTAB\n")
 
 	// Block Record table (required in AC1015)
@@ -108,6 +115,20 @@ func GenerateDXF(contours []Contour, segments []PathSegment, format DXFFormat, l
 			emitLWPolyline(&sb, rectPts, "CONSTRUCTION", true)
 		} else {
 			emitR12Polyline(&sb, rectPts, "CONSTRUCTION", true)
+		}
+	}
+
+	// Emit perimeter boundary contours on layer BORDER
+	if len(boundaryContours) > 0 {
+		for _, bc := range boundaryContours {
+			if len(bc.Points) < 3 {
+				continue
+			}
+			if format == DXFFormatSpline {
+				emitLWPolyline(&sb, bc.Points, "BORDER", true)
+			} else {
+				emitR12Polyline(&sb, bc.Points, "BORDER", true)
+			}
 		}
 	}
 

@@ -425,6 +425,26 @@ body.dark-theme {
   filter: none !important;
 }
 
+/* Perimeter Boundary / Badge Path styling */
+.boundary-path {
+  transition: all 0.2s ease;
+}
+
+.view-mode-wireframe .boundary-path {
+  stroke: #06b6d4 !important;
+  stroke-width: 0.8 !important;
+  fill: none !important;
+  filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.7));
+}
+
+.view-mode-fill .boundary-path {
+  fill: #1e293b !important;
+  stroke: #06b6d4 !important;
+  stroke-width: 0.8 !important;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
+}
+
+
 /* Viewport Footer Statusbar */
 .viewport-statusbar {
   height: var(--statusbar-height);

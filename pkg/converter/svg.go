@@ -6,8 +6,8 @@ import (
 )
 
 // GenerateSVG produces a clean, CAD-optimized vector SVG string with physical dimensions,
-// evenodd fill rules for inner counters, and optional reference construction frames.
-func GenerateSVG(contours []Contour, segments []PathSegment, bounds BoundingBox, units Units, constructionBox bool) string {
+// evenodd fill rules for inner counters, optional boundary enclosures, and optional reference construction frames.
+func GenerateSVG(contours []Contour, segments []PathSegment, bounds BoundingBox, units Units, constructionBox bool, boundaryContours []Contour) string {
 	width := bounds.Width()
 	height := bounds.Height()
 
@@ -82,9 +82,26 @@ func GenerateSVG(contours []Contour, segments []PathSegment, bounds BoundingBox,
 	sb.WriteString("    <style>\n")
 	sb.WriteString("      .cut-path { fill: none; stroke: #e02424; stroke-width: 0.35; stroke-linecap: round; stroke-linejoin: round; fill-rule: evenodd; }\n")
 	sb.WriteString("      .fill-path { fill: #f3f4f6; stroke: none; fill-rule: evenodd; }\n")
+	sb.WriteString("      .boundary-path { fill: none; stroke: #38bdf8; stroke-width: 0.5; stroke-linecap: round; stroke-linejoin: round; fill-rule: evenodd; }\n")
 	sb.WriteString("      .construction-frame { fill: none; stroke: #6b7280; stroke-width: 0.25; stroke-dasharray: 2,2; opacity: 0.75; }\n")
 	sb.WriteString("    </style>\n")
 	sb.WriteString("  </defs>\n")
+	if len(boundaryContours) > 0 {
+		var bD strings.Builder
+		for _, bc := range boundaryContours {
+			if len(bc.Points) < 3 {
+				continue
+			}
+			x0, y0 := toSVG(bc.Points[0])
+			bD.WriteString(fmt.Sprintf("M %.3f,%.3f ", x0, y0))
+			for i := 1; i < len(bc.Points); i++ {
+				x, y := toSVG(bc.Points[i])
+				bD.WriteString(fmt.Sprintf("L %.3f,%.3f ", x, y))
+			}
+			bD.WriteString("Z ")
+		}
+		sb.WriteString(fmt.Sprintf(`  <path class="boundary-path" fill-rule="evenodd" d="%s" />`+"\n", strings.TrimSpace(bD.String())))
+	}
 	sb.WriteString(fmt.Sprintf(`  <path class="cut-path" fill-rule="evenodd" d="%s" />`+"\n", strings.TrimSpace(pathD.String())))
 	if constructionBox {
 		sb.WriteString(fmt.Sprintf(`  <rect class="construction-frame" x="0.0" y="0.0" width="%.3f" height="%.3f" />`+"\n", width, height))

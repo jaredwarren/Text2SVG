@@ -1,5 +1,11 @@
 github.com/akavel/polyclip-go v0.0.0-20160111220610-2cfdb71461bd h1:/DQAi5feF/aviHBeEK8mS1D/bm6gNFlUFtDkX0L7jOU=
 github.com/akavel/polyclip-go v0.0.0-20160111220610-2cfdb71461bd/go.mod h1:GwtPRvP/jvUpifg23D1jSVP93pV0cSV9fWOn9sG+HEo=
+github.com/lestrrat-go/polyclip v0.0.0-20260905223339-a5d5bd36ed25 h1:RtBX3vJjf4BkOR5PlXyMdpF4K2txVTlQOD5ZPHfEviY=
+github.com/lestrrat-go/polyclip v0.0.0-20260905223339-a5d5bd36ed25/go.mod h1:iTQr7+onasvHsqdbNM7aq2xfdMJuwBEV3Oehu5vOMDM=
+github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
+github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/image v0.46.0 h1:b1+oYj0Jbp6K5MDT4i4/eZpYlk3V8SJhhDKh6LBHAyQ=
 golang.org/x/image v0.46.0/go.mod h1:3B3W05VGVQyuXucLINLjXKrqISASfi4Xj+iCVkLMwew=
 golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=

@@ -122,6 +122,41 @@ Optimizing interoperability and placement within CAD workspaces.
 
 ---
 
+## Phase 4: Perimeter Boundaries, Badges & Backing Plates - [x] Core Features Completed (CAM stuff deferred)
+
+Targeted at keychains, plaques, laser-cut name badges, CNC faceplates, and dual-level 3D-printed signs.
+
+### 4.1 Boundary Modes: Conformal Silhouette vs. Geometric Enclosure - [x] Completed
+- **Conformal Silhouette (Contour Bubble)**:
+  - Generates an outward offset contour that traces the organic perimeter of the welded text at a specified offset distance (`--boundary-offset <dist>`).
+  - **Hole Handling**: Fills internal counter holes (e.g. inside 'O', 'A', 'B', '8', '0') and tight valleys by default (`--boundary-fill-holes=true`) to guarantee a continuous solid backing plate, with an optional toggle to preserve internal cutouts.
+- **Geometric Enclosure (Padding Box / Capsule / Pill)**:
+  - Generates an enclosing geometric boundary around the text bounding envelope with configurable uniform or asymmetric padding (`--boundary-padding <dist>`, optional `--boundary-padding-y <dist>`).
+  - **Corner Radius**: Adjustable corner radius (`--boundary-radius <r>`), supporting sharp 90° corners ($R=0$), rounded rectangle corners, or full semi-circular ends for a pill/capsule badge ($R \ge \text{height}/2$).
+
+### 4.2 Multi-Layer Vector Architecture & Origin Placement - [x] Completed
+- **Coordinated Layers**:
+  - The outer boundary exports to layer `BORDER` (ACI 4 / Cyan in DXF) as closed `LWPOLYLINE` (AC1015) or closed `POLYLINE` (AC1009), and `.boundary-path` in SVG.
+  - Text geometry remains on its configured layer (`CUT`, `ENGRAVE`, or `SCORE`).
+- **Datum Alignment to Boundary**:
+  - Origin datum $(0,0)$ automatically shifts to the **outer boundary perimeter** (e.g., bottom-left corner or center of the physical badge) so CNC/laser machine probe points match the physical workpiece edges.
+
+### 4.3 Integrated Mounting & Fixture Holes *(CAM Extension - Deferred)*
+- **Hole Configurations (`--mounting-holes`)**:
+  - `none`: Solid badge perimeter without holes.
+  - `corners`: 4 symmetrical screw holes inset from the boundary corners.
+  - `sides`: 2 centered mounting holes on the left and right margins.
+  - `keychain-top`: Single hanger hole centered along the top margin.
+  - `keychain-left`: Single keychain loop hole centered along the left margin.
+- **Configurable Hole Diameter**: `--mounting-hole-dia <dia>` (default `3.2 mm` for #4/M3 hardware, or `4.5 mm` for keychains).
+
+### 4.4 Dual-Level 3D WebGL Visualization - [x] Completed
+- In Web Studio's 3D viewer, renders the design as a realistic multi-level physical badge:
+  - Boundary rendered as an extruded backing baseplate (with configurable base thickness).
+  - Text rendered raised/embossed on top of the plate with contrasting PBR material finish (e.g., polished brass text on matte black acrylic baseplate).
+
+---
+
 ## Prioritized Implementation Roadmap
 
 | Priority | Feature | Phase | Complexity | CAD Impact | Primary Benefit |
@@ -135,3 +170,4 @@ Optimizing interoperability and placement within CAD workspaces.
 | **7** | **CAD-Optimized SVG (Fusion/FreeCAD)** | Phase 3 | Low | **High** | [x] Direct 1:1 scale millimeter sketch import |
 | **8** | **DXF Health Inspector & Linter** | Phase 3 | Low-Med | **High** | [x] Instant diagnosis of DXF import failures in Onshape/Fusion |
 | **9** | **3D WebGL Extrude Preview** | Phase 3 | Low-Med | **Medium** | [x] Visualizes 3D look before exporting to CAD |
+| **10** | **Perimeter Boundaries & Badges** | Phase 4 | Medium | **High** | [x] One-click laser/CNC keychains, plaques & backing plates |

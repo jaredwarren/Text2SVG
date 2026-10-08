@@ -46,6 +46,13 @@ type ConvertRequest struct {
 	ArcAlign        converter.ArcAlignment `json:"arc_align"`
 	ArcInward       bool                   `json:"arc_inward"`
 	ConstructionBox bool                   `json:"construction_box"`
+	BoundaryMode      converter.BoundaryMode `json:"boundary_mode"`
+	BoundaryOffset    float64                `json:"boundary_offset"`
+	BoundaryPaddingY  float64                `json:"boundary_padding_y"`
+	BoundaryRadius    float64                `json:"boundary_radius"`
+	BoundaryFillHoles bool                   `json:"boundary_fill_holes"`
+	BoundaryShiftX    float64                `json:"boundary_shift_x"`
+	BoundaryShiftY    float64                `json:"boundary_shift_y"`
 }
 
 // ConvertResponse is the response returned to the Web UI.
@@ -138,7 +145,7 @@ func (s *Server) parseRequest(r *http.Request) (*ConvertRequest, *converter.Load
 		req.Units = converter.UnitsMM
 	}
 	if req.Datum == "" {
-		req.Datum = converter.DatumBottomLeft
+		req.Datum = converter.DatumCenter
 	}
 	if req.CurveSamples <= 0 {
 		req.CurveSamples = 16
@@ -158,6 +165,15 @@ func (s *Server) parseRequest(r *http.Request) (*ConvertRequest, *converter.Load
 	if req.ArcAlign == "" {
 		req.ArcAlign = converter.ArcAlignCenter
 	}
+	if req.BoundaryMode == "" {
+		req.BoundaryMode = converter.BoundaryNone
+	}
+	if req.BoundaryMode == converter.BoundaryConformal && req.BoundaryOffset <= 0 {
+		req.BoundaryOffset = 3.0
+	}
+	if req.BoundaryMode == converter.BoundaryBox && req.BoundaryOffset <= 0 {
+		req.BoundaryOffset = 5.0
+	}
 
 	loadedFont, err := s.fontManager.GetFont(req.FontID)
 	if err != nil {
@@ -175,25 +191,32 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := font.LayoutText(converter.TextParams{
-		Text:         req.Text,
-		Size:         req.Size,
-		Units:        req.Units,
-		Kerning:      req.Kerning,
-		LineHeight:   req.LineHeight,
-		Datum:        req.Datum,
-		CurveSamples: req.CurveSamples,
-		LayerName:    req.LayerName,
-		Weld:         req.Weld,
-		DXFFormat:    req.DXFFormat,
-		SlantAngle:   req.SlantAngle,
-		Offset:       req.Offset,
-		CornerJoin:   req.CornerJoin,
-		ArcEnabled:   req.ArcEnabled,
-		ArcRadius:    req.ArcRadius,
-		ArcSweep:        req.ArcSweep,
-		ArcAlign:        req.ArcAlign,
-		ArcInward:       req.ArcInward,
-		ConstructionBox: req.ConstructionBox,
+		Text:              req.Text,
+		Size:              req.Size,
+		Units:             req.Units,
+		Kerning:           req.Kerning,
+		LineHeight:        req.LineHeight,
+		Datum:             req.Datum,
+		CurveSamples:      req.CurveSamples,
+		LayerName:         req.LayerName,
+		Weld:              req.Weld,
+		DXFFormat:         req.DXFFormat,
+		SlantAngle:        req.SlantAngle,
+		Offset:            req.Offset,
+		CornerJoin:        req.CornerJoin,
+		ArcEnabled:        req.ArcEnabled,
+		ArcRadius:         req.ArcRadius,
+		ArcSweep:          req.ArcSweep,
+		ArcAlign:          req.ArcAlign,
+		ArcInward:         req.ArcInward,
+		ConstructionBox:   req.ConstructionBox,
+		BoundaryMode:      req.BoundaryMode,
+		BoundaryOffset:    req.BoundaryOffset,
+		BoundaryPaddingY:  req.BoundaryPaddingY,
+		BoundaryRadius:    req.BoundaryRadius,
+		BoundaryFillHoles: req.BoundaryFillHoles,
+		BoundaryShiftX:    req.BoundaryShiftX,
+		BoundaryShiftY:    req.BoundaryShiftY,
 	})
 	if err != nil {
 		http.Error(w, "Failed to render text: "+err.Error(), http.StatusInternalServerError)
@@ -231,9 +254,31 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	if req.ConstructionBox {
 		boxFlag = " --construction-box"
 	}
+	boundaryFlag := ""
+	if req.BoundaryMode != "" && req.BoundaryMode != converter.BoundaryNone {
+		boundaryFlag = fmt.Sprintf(" --boundary %s --boundary-offset %.1f", req.BoundaryMode, req.BoundaryOffset)
+		if req.BoundaryMode == converter.BoundaryBox {
+			if req.BoundaryPaddingY > 0 && req.BoundaryPaddingY != req.BoundaryOffset {
+				boundaryFlag += fmt.Sprintf(" --boundary-padding-y %.1f", req.BoundaryPaddingY)
+			}
+			if req.BoundaryRadius > 0 {
+				boundaryFlag += fmt.Sprintf(" --boundary-radius %.1f", req.BoundaryRadius)
+			}
+		} else if req.BoundaryMode == converter.BoundaryConformal {
+			if !req.BoundaryFillHoles {
+				boundaryFlag += " --boundary-fill-holes=false"
+			}
+		}
+		if req.BoundaryShiftX != 0 {
+			boundaryFlag += fmt.Sprintf(" --boundary-shift-x %.1f", req.BoundaryShiftX)
+		}
+		if req.BoundaryShiftY != 0 {
+			boundaryFlag += fmt.Sprintf(" --boundary-shift-y %.1f", req.BoundaryShiftY)
+		}
+	}
 
-	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s%s%s%s%s --format dxf --out export.dxf",
-		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag, slantFlag, offsetFlag, arcFlag, boxFlag)
+	cliCmd := fmt.Sprintf("text2svg --text \"%s\" --font \"%s\" --size %.1f --kerning %.2f --datum %s%s%s%s%s%s%s%s --format dxf --out export.dxf",
+		escapedText, font.FontName, req.Size, req.Kerning, req.Datum, weldFlag, dxfFormatFlag, slantFlag, offsetFlag, arcFlag, boxFlag, boundaryFlag)
 
 	resp := ConvertResponse{
 		SVG:        result.SVG,
@@ -260,25 +305,32 @@ func (s *Server) handleExportDXF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := font.LayoutText(converter.TextParams{
-		Text:            req.Text,
-		Size:            req.Size,
-		Units:           req.Units,
-		Kerning:         req.Kerning,
-		LineHeight:      req.LineHeight,
-		Datum:           req.Datum,
-		CurveSamples:    req.CurveSamples,
-		LayerName:       req.LayerName,
-		Weld:            req.Weld,
-		DXFFormat:       req.DXFFormat,
-		SlantAngle:      req.SlantAngle,
-		Offset:          req.Offset,
-		CornerJoin:      req.CornerJoin,
-		ArcEnabled:      req.ArcEnabled,
-		ArcRadius:       req.ArcRadius,
-		ArcSweep:        req.ArcSweep,
-		ArcAlign:        req.ArcAlign,
-		ArcInward:       req.ArcInward,
-		ConstructionBox: req.ConstructionBox,
+		Text:              req.Text,
+		Size:              req.Size,
+		Units:             req.Units,
+		Kerning:           req.Kerning,
+		LineHeight:        req.LineHeight,
+		Datum:             req.Datum,
+		CurveSamples:      req.CurveSamples,
+		LayerName:         req.LayerName,
+		Weld:              req.Weld,
+		DXFFormat:         req.DXFFormat,
+		SlantAngle:        req.SlantAngle,
+		Offset:            req.Offset,
+		CornerJoin:        req.CornerJoin,
+		ArcEnabled:        req.ArcEnabled,
+		ArcRadius:         req.ArcRadius,
+		ArcSweep:          req.ArcSweep,
+		ArcAlign:          req.ArcAlign,
+		ArcInward:         req.ArcInward,
+		ConstructionBox:   req.ConstructionBox,
+		BoundaryMode:      req.BoundaryMode,
+		BoundaryOffset:    req.BoundaryOffset,
+		BoundaryPaddingY:  req.BoundaryPaddingY,
+		BoundaryRadius:    req.BoundaryRadius,
+		BoundaryFillHoles: req.BoundaryFillHoles,
+		BoundaryShiftX:    req.BoundaryShiftX,
+		BoundaryShiftY:    req.BoundaryShiftY,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate DXF: "+err.Error(), http.StatusInternalServerError)
@@ -299,25 +351,32 @@ func (s *Server) handleExportSVG(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := font.LayoutText(converter.TextParams{
-		Text:            req.Text,
-		Size:            req.Size,
-		Units:           req.Units,
-		Kerning:         req.Kerning,
-		LineHeight:      req.LineHeight,
-		Datum:           req.Datum,
-		CurveSamples:    req.CurveSamples,
-		LayerName:       req.LayerName,
-		Weld:            req.Weld,
-		DXFFormat:       req.DXFFormat,
-		SlantAngle:      req.SlantAngle,
-		Offset:          req.Offset,
-		CornerJoin:      req.CornerJoin,
-		ArcEnabled:      req.ArcEnabled,
-		ArcRadius:       req.ArcRadius,
-		ArcSweep:        req.ArcSweep,
-		ArcAlign:        req.ArcAlign,
-		ArcInward:       req.ArcInward,
-		ConstructionBox: req.ConstructionBox,
+		Text:              req.Text,
+		Size:              req.Size,
+		Units:             req.Units,
+		Kerning:           req.Kerning,
+		LineHeight:        req.LineHeight,
+		Datum:             req.Datum,
+		CurveSamples:      req.CurveSamples,
+		LayerName:         req.LayerName,
+		Weld:              req.Weld,
+		DXFFormat:         req.DXFFormat,
+		SlantAngle:        req.SlantAngle,
+		Offset:            req.Offset,
+		CornerJoin:        req.CornerJoin,
+		ArcEnabled:        req.ArcEnabled,
+		ArcRadius:         req.ArcRadius,
+		ArcSweep:          req.ArcSweep,
+		ArcAlign:          req.ArcAlign,
+		ArcInward:         req.ArcInward,
+		ConstructionBox:   req.ConstructionBox,
+		BoundaryMode:      req.BoundaryMode,
+		BoundaryOffset:    req.BoundaryOffset,
+		BoundaryPaddingY:  req.BoundaryPaddingY,
+		BoundaryRadius:    req.BoundaryRadius,
+		BoundaryFillHoles: req.BoundaryFillHoles,
+		BoundaryShiftX:    req.BoundaryShiftX,
+		BoundaryShiftY:    req.BoundaryShiftY,
 	})
 	if err != nil {
 		http.Error(w, "Failed to generate SVG: "+err.Error(), http.StatusInternalServerError)

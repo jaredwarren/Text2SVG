@@ -344,6 +344,120 @@
           </div>
         </div>
 
+        <!-- 4. Perimeter Boundary & Badge (Phase 4) -->
+        <div class="control-card">
+          <div class="card-header">
+            <h3>Perimeter Boundary & Badge</h3>
+            <span class="badge-mini" id="boundary-mode-tag">None</span>
+          </div>
+          <div class="card-body">
+            <!-- Boundary Mode Selector -->
+            <div class="form-group">
+              <label for="select-boundary-mode">Boundary Enclosure Mode</label>
+              <select id="select-boundary-mode" class="styled-select">
+                <option value="none" selected>None (Text Only)</option>
+                <option value="conformal">Conformal Silhouette (Contour Bubble)</option>
+                <option value="box">Geometric Enclosure (Padding Box / Pill)</option>
+              </select>
+              <span class="form-hint">Generates outer backing plate, keychain hull, or mounting plaque</span>
+            </div>
+
+            <!-- Boundary Options Sub-panel (collapsible, shown when mode != 'none') -->
+            <div class="sub-options-panel" id="boundary-options-panel" style="display: none;">
+              <!-- Offset / Padding X -->
+              <div class="param-slider-group">
+                <div class="param-label-row">
+                  <label for="input-boundary-offset-range" id="label-boundary-offset">Offset / Padding</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-boundary-offset-num" min="0.5" max="50" step="0.5" value="4.0">
+                    <span class="unit-label">mm</span>
+                  </div>
+                </div>
+                <input type="range" id="input-boundary-offset-range" min="0.5" max="30" step="0.5" value="4.0" class="styled-range">
+                <span class="form-hint" id="hint-boundary-offset">Outward bubble contour distance or boundary padding</span>
+              </div>
+
+              <!-- Box-only: Asymmetric Y Padding -->
+              <div class="param-slider-group" id="group-boundary-paddy" style="display: none;">
+                <div class="param-label-row">
+                  <label for="input-boundary-paddy-range">Y Padding (0 = Same as X)</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-boundary-paddy-num" min="0" max="50" step="0.5" value="0.0">
+                    <span class="unit-label">mm</span>
+                  </div>
+                </div>
+                <input type="range" id="input-boundary-paddy-range" min="0" max="30" step="0.5" value="0.0" class="styled-range">
+                <span class="form-hint">Allows asymmetric badge proportions (e.g. wide rectangular nameplate)</span>
+              </div>
+
+              <!-- Box-only: Corner Radius -->
+              <div class="param-slider-group" id="group-boundary-radius" style="display: none;">
+                <div class="param-label-row">
+                  <label for="input-boundary-radius-range">Corner Radius (R)</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-boundary-radius-num" min="0" max="50" step="0.5" value="3.0">
+                    <span class="unit-label">mm</span>
+                  </div>
+                </div>
+                <input type="range" id="input-boundary-radius-range" min="0" max="30" step="0.5" value="3.0" class="styled-range">
+                <span class="form-hint">0 = sharp 90° rectangle; max = pill/capsule badge</span>
+              </div>
+
+              <!-- Boundary Alignment / Datum -->
+              <div class="form-group">
+                <label>Origin & Boundary Alignment</label>
+                <div class="pill-group pill-group-wrap" id="boundary-datum-pill-group">
+                  <button class="pill-btn active" data-datum="center">Center</button>
+                  <button class="pill-btn" data-datum="bottom-left">Bottom-Left</button>
+                  <button class="pill-btn" data-datum="top-left">Top-Left</button>
+                  <button class="pill-btn" data-datum="baseline-left">Baseline-Left</button>
+                  <button class="pill-btn" data-datum="baseline-center">Baseline-Center</button>
+                </div>
+                <span class="form-hint">Default 'Center' expands offset distance symmetrically on all sides (+X, -X, +Y, -Y)</span>
+              </div>
+
+              <!-- Manual Boundary Shift X -->
+              <div class="param-slider-group">
+                <div class="param-label-row">
+                  <label for="input-boundary-shiftx-range">Boundary Shift X</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-boundary-shiftx-num" min="-50" max="50" step="0.5" value="0.0">
+                    <span class="unit-label">mm</span>
+                  </div>
+                </div>
+                <input type="range" id="input-boundary-shiftx-range" min="-30" max="30" step="0.5" value="0.0" class="styled-range">
+                <span class="form-hint">Nudge boundary horizontally relative to text</span>
+              </div>
+
+              <!-- Manual Boundary Shift Y -->
+              <div class="param-slider-group">
+                <div class="param-label-row">
+                  <label for="input-boundary-shifty-range">Boundary Shift Y</label>
+                  <div class="param-val-input">
+                    <input type="number" id="input-boundary-shifty-num" min="-50" max="50" step="0.5" value="0.0">
+                    <span class="unit-label">mm</span>
+                  </div>
+                </div>
+                <input type="range" id="input-boundary-shifty-range" min="-30" max="30" step="0.5" value="0.0" class="styled-range">
+                <span class="form-hint">Nudge boundary vertically relative to text</span>
+              </div>
+
+              <!-- Conformal-only: Fill Interior Holes Toggle -->
+              <div class="toggle-control-row toggle-mini" id="group-boundary-fill-holes" style="display: none;">
+                <div class="toggle-text">
+                  <label for="toggle-boundary-fill-holes" class="toggle-label">Fill Counter Holes</label>
+                  <span class="toggle-hint">Creates solid continuous backing hull; uncheck to keep inner cutouts</span>
+                </div>
+                <label class="switch switch-mini">
+                  <input type="checkbox" id="toggle-boundary-fill-holes" checked>
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         <!-- 5. 3D CAD & CAM Setup -->
         <div class="control-card">
           <div class="card-header">
@@ -389,8 +503,8 @@
             <div class="form-group">
               <label>Origin Datum Point (0,0)</label>
               <div class="pill-group pill-group-wrap" id="datum-pill-group">
-                <button class="pill-btn active" data-datum="bottom-left">Bottom-Left</button>
-                <button class="pill-btn" data-datum="center">Center</button>
+                <button class="pill-btn active" data-datum="center">Center</button>
+                <button class="pill-btn" data-datum="bottom-left">Bottom-Left</button>
                 <button class="pill-btn" data-datum="top-left">Top-Left</button>
                 <button class="pill-btn" data-datum="baseline-left">Baseline-Left</button>
                 <button class="pill-btn" data-datum="baseline-center">Baseline-Center</button>
