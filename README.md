@@ -39,7 +39,7 @@ Optimized for laser cutters, CNC routers, vinyl plotters, plasma cutters, and 3D
 ### 1. Build the Binary
 ```bash
 make build
-# or: go build -o text2svg .
+# or: go build -o text2svg ./cmd/text2svg
 ```
 
 ### 2. Launch the Web Studio
@@ -88,6 +88,17 @@ Export directly from your terminal:
 
 ---
 
+## Project Layout
+
+```text
+cmd/text2svg/   # CLI and Web Studio entrypoint
+pkg/            # Library packages (converter, fonts, server, dxf)
+web/            # Embedded Web Studio static assets
+fonts/          # Local font drop folder (gitignored contents)
+scripts/        # Ad-hoc //go:build ignore debug tools
+docs/           # Design notes and roadmap
+```
+
 ## Development
 
 A comprehensive `Makefile` is included:
@@ -114,5 +125,5 @@ make clean         # Remove binaries, test coverage, and build artifacts
 
 ## License
 
-This project is licensed under the [MIT License](file:///Users/jaredwarren/go/src/github.com/jaredwarren/Text2SVG/LICENSE).
+This project is licensed under the [MIT License](LICENSE).
 

@@ -22,7 +22,13 @@ profile.out
 # Exported vector / CAM scratch files
 *.dxf
 *.svg
+*.svg.png
 !web/**/*.svg
+
+# Ad-hoc script outputs (run from repo root or scripts/)
+scripts/*.dxf
+scripts/*.svg
+scripts/*.png
 
 # Local user font drop folder
 fonts/*

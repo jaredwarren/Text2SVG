@@ -13,3 +13,4 @@ linters:
 issues:
   exclude-dirs:
     - web/static
+    - scripts

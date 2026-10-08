@@ -2,7 +2,7 @@
 # Makefile
 
 BINARY_NAME ?= text2svg
-MAIN_PKG    ?= .
+MAIN_PKG    ?= ./cmd/text2svg
 GO          ?= go
 PORT        ?= 8080
 DIST_DIR    ?= dist
